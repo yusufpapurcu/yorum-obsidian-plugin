@@ -154,8 +154,10 @@ export async function groundedReply(
     if (end < cursor) continue;
     out += decode(cursor, end);
     cursor = end;
-    // A marker inside an open fence (diagram or code) would break it.
+    // A marker inside an open fence (diagram or code) would break it, and so would one appended to
+    // the fence line itself: a closing ``` followed by text no longer closes the block.
     if ((out.match(/^\s*(```|~~~)/gm)?.length ?? 0) % 2 === 1) continue;
+    if (/^\s*(```|~~~)[^\n]*$/.test(out.slice(out.lastIndexOf("\n") + 1))) continue;
     const numbers = [...new Set(s.chunks.map((c) => numberOf.get(c)!))].sort((a, b) => a - b);
     out += numbers.map((n) => `[\\[${n}\\]](${sources[n - 1].url})`).join("");
   }

@@ -353,9 +353,10 @@ describe("web search grounding", () => {
     );
   });
 
-  it("never puts a citation marker inside a fenced diagram", async () => {
+  it("never puts a citation marker inside a fenced block or on its fence line", async () => {
     const text = "Intro claim.\n```mermaid\ngraph TD\nA-->B\n```\nDone.";
     const insideFence = Buffer.byteLength("Intro claim.\n```mermaid\ngraph TD");
+    const atClosingFence = Buffer.byteLength("Intro claim.\n```mermaid\ngraph TD\nA-->B\n```");
     const reply = await groundedReply(
       text,
       {
@@ -363,6 +364,7 @@ describe("web search grounding", () => {
         groundingSupports: [
           { segment: { endIndex: Buffer.byteLength("Intro claim") }, groundingChunkIndices: [0] },
           { segment: { endIndex: insideFence }, groundingChunkIndices: [0] },
+          { segment: { endIndex: atClosingFence }, groundingChunkIndices: [0] },
         ],
       },
       identity,

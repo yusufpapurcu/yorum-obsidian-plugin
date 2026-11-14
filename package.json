@@ -1,6 +1,6 @@
 {
   "name": "yorum",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Talk with your Markdown notes: an AI commentary layer stored in sidecar files, never in your notes.",
   "license": "MIT",
