@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+# Plugin build output
+obsidian-plugin/main.js
+# Local state of the demo vault: Obsidian settings and the AI comments created while trying it
+sample-vault/.obsidian/
+sample-vault/.yorum/
+sample-vault/.margin/

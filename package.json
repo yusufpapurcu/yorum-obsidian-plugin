@@ -1,0 +1,43 @@
+{
+  "name": "yorum",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Talk with your Markdown notes: an AI commentary layer stored in sidecar files, never in your notes.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "plugin:check": "tsc -p obsidian-plugin/tsconfig.json",
+    "plugin:build": "npm run plugin:check && node obsidian-plugin/esbuild.config.mjs",
+    "plugin:install": "npm run plugin:check && node obsidian-plugin/esbuild.config.mjs --install"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.17",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "katex": "^0.19.1",
+    "marked": "^15.0.0",
+    "mermaid": "^12.3.0",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.3.0",
+    "vega-lite": "^6.5.0"
+  },
+  "devDependencies": {
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@types/supertest": "^6.0.2",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.14.4",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

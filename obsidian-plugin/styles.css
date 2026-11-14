@@ -1,0 +1,126 @@
+/* Yorum — uses Obsidian theme variables so it follows light/dark themes and accent colours. */
+
+.yorum-view { padding: 12px 14px 40px; font-size: var(--font-ui-small); }
+.yorum-empty { color: var(--text-muted); margin: 18px 4px; line-height: 1.5; }
+.yorum-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.yorum-title { font-weight: 600; font-size: var(--font-ui-medium); overflow-wrap: anywhere; }
+.yorum-tools { display: flex; gap: 2px; }
+.yorum-label { font-size: var(--font-ui-smaller); color: var(--text-muted); margin-bottom: 4px; }
+.yorum-muted { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.yorum-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; }
+.yorum-row.small { justify-content: flex-start; gap: 12px; margin: 2px 0 8px; }
+.yorum-view textarea { width: 100%; resize: vertical; font-size: var(--font-ui-small); }
+
+.yorum-intent { margin-bottom: 12px; }
+.yorum-intent textarea { color: var(--text-accent); }
+
+.yorum-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.yorum-chip {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 9px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  white-space: normal;
+  text-align: left;
+}
+.yorum-chip:hover { border-color: var(--interactive-accent); color: var(--text-accent); }
+.yorum-chip.selected, .yorum-chip.accent:hover { background: var(--interactive-accent); color: var(--text-on-accent); border-color: var(--interactive-accent); }
+.yorum-chip.accent { color: var(--text-accent); }
+
+.yorum-link {
+  background: none;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  height: auto;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-right: 10px;
+}
+.yorum-link:hover { color: var(--text-accent); background: none; }
+.yorum-link.danger:hover { color: var(--text-error); }
+
+.yorum-card {
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--background-primary);
+  cursor: pointer;
+}
+.yorum-card.focus, .yorum-card.composer, .yorum-card.pending { cursor: default; box-shadow: 0 0 0 2px var(--background-modifier-hover); }
+.yorum-quote {
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--text-highlight-bg);
+  padding-left: 8px;
+  margin-bottom: 6px;
+  max-height: 4.5em;
+  overflow: hidden;
+  cursor: pointer;
+}
+.yorum-scope { font-size: var(--font-ui-smaller); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.yorum-lens {
+  display: inline-block;
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
+  border-radius: 10px;
+  padding: 0 8px;
+  margin-bottom: 6px;
+}
+.yorum-msg { margin: 6px 0; line-height: 1.5; }
+.yorum-msg.user { font-weight: 600; }
+.yorum-msg.assistant > :first-child { margin-top: 0; }
+.yorum-msg.assistant > :last-child { margin-bottom: 0; }
+.yorum-card:not(.focus) .yorum-msg.assistant { max-height: 6.5em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent); }
+.yorum-msg.muted { color: var(--text-muted); font-style: italic; }
+.yorum-msg.streaming { white-space: pre-wrap; }
+.yorum-msg.streaming::after { content: "▍"; color: var(--text-accent); animation: yorum-blink 1s steps(1) infinite; }
+@keyframes yorum-blink { 50% { opacity: 0; } }
+
+.yorum-cite { font-size: 0.75em; vertical-align: super; text-decoration: none; }
+.yorum-sources, .yorum-related { margin-top: 8px; font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.yorum-sources { border-top: 1px dashed var(--background-modifier-border); padding-top: 6px; }
+.yorum-sources-label { font-weight: 600; }
+.yorum-sources ol { margin: 2px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
+
+.yorum-sketch { margin: 8px 0; color: var(--text-accent); }
+.yorum-sketch-svg { width: 100%; height: auto; }
+.yorum-sketch-svg [data-step].current { color: var(--text-normal); }
+.yorum-steps { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.yorum-steps button { height: auto; padding: 1px 8px; }
+.yorum-step-count { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 3em; text-align: center; }
+.yorum-step-caption { color: var(--text-normal); margin-top: 4px; }
+.yorum-viz-hint, .yorum-viz-error { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.yorum-viz-error { color: var(--text-error); }
+
+/* Commented passages in the editor */
+.yorum-anchor {
+  background: rgba(var(--color-yellow-rgb), 0.25);
+  border-bottom: 2px solid rgba(var(--color-yellow-rgb), 0.7);
+  cursor: pointer;
+}
+
+/* Search modal */
+.yorum-search-title { font-weight: 600; }
+.yorum-search-snippet { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.yorum-search-snippet.comment.assistant { color: var(--text-accent); }
+
+/* Inspector */
+.yorum-inspector-summary { background: var(--background-secondary); border-radius: var(--radius-m); padding: 10px 12px; line-height: 1.6; }
+.yorum-inspector-message { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); margin: 6px 0; }
+.yorum-inspector-message summary { padding: 4px 8px; cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.yorum-inspector-message pre { margin: 0; padding: 8px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; font-size: var(--font-ui-smaller); }
+
+/* Diagrams keep a readable size in the narrow panel: wide ones scroll sideways instead of shrinking. */
+.yorum-msg .mermaid { overflow-x: auto; padding-bottom: 4px; }
+.yorum-msg .mermaid svg { max-width: none !important; min-width: 100%; height: auto; }
+.yorum-msg .mermaid, .yorum-msg .yorum-sketch-svg { cursor: zoom-in; }
+.yorum-diagram-modal { width: min(1100px, 92vw); }
+.yorum-diagram-modal .mermaid { text-align: center; }

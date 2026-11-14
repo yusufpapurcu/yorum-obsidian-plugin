@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" font-family="Georgia, serif" font-size="14">
+  <rect width="360" height="200" fill="#fbfaf7"/>
+  <path d="M60 150 C 60 40, 300 40, 300 100 C 300 160, 180 170, 180 110 C 180 60, 60 60, 60 150" fill="none" stroke="#2f5bd3" stroke-width="2.5"/>
+  <text x="40" y="170" fill="#24221f">r</text>
+  <text x="290" y="60" fill="#24221f">K</text>
+  <text x="305" y="125" fill="#24221f">Ω</text>
+  <text x="165" y="130" fill="#24221f">α</text>
+  <text x="110" y="190" fill="#8a857c" font-size="12">adaptive cycle (sketch)</text>
+</svg>
