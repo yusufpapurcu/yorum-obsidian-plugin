@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#5B21B6"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- the note: your words -->
+  <rect x="40" y="48" width="112" height="160" rx="16" fill="#FFFFFF"/>
+  <rect x="60" y="76" width="72" height="11" rx="5.5" fill="#DDD6FE"/>
+  <rect x="60" y="100" width="58" height="11" rx="5.5" fill="#DDD6FE"/>
+  <!-- the passage you asked about, highlighted -->
+  <rect x="54" y="120" width="84" height="23" rx="7" fill="#FDE68A"/>
+  <rect x="60" y="126" width="72" height="11" rx="5.5" fill="#B45309" opacity="0.55"/>
+  <rect x="60" y="156" width="66" height="11" rx="5.5" fill="#DDD6FE"/>
+  <rect x="60" y="180" width="44" height="11" rx="5.5" fill="#DDD6FE"/>
+  <!-- the AI's comment beside it -->
+  <path d="M146 92 h56 a18 18 0 0 1 18 18 v38 a18 18 0 0 1 -18 18 h-44 l-24 18 l6 -18 a18 18 0 0 1 -12 -17 v-39 a18 18 0 0 1 18 -18 z" fill="#FBBF24"/>
+  <circle cx="160" cy="129" r="7" fill="#5B21B6"/>
+  <circle cx="181" cy="129" r="7" fill="#5B21B6"/>
+  <circle cx="202" cy="129" r="7" fill="#5B21B6"/>
+</svg>
