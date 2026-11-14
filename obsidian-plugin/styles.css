@@ -118,9 +118,9 @@
 .yorum-inspector-message summary { padding: 4px 8px; cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-smaller); }
 .yorum-inspector-message pre { margin: 0; padding: 8px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; font-size: var(--font-ui-smaller); }
 
-/* Diagrams keep a readable size in the narrow panel: wide ones scroll sideways instead of shrinking. */
+/* Diagrams keep their natural size in the panel (set in render.ts); wide ones scroll sideways. */
 .yorum-msg .mermaid { overflow-x: auto; padding-bottom: 4px; }
-.yorum-msg .mermaid svg { max-width: none !important; min-width: 100%; height: auto; }
+.yorum-msg .mermaid svg { height: auto; }
 .yorum-msg .mermaid, .yorum-msg .yorum-sketch-svg { cursor: zoom-in; }
 .yorum-diagram-modal { width: min(1100px, 92vw); }
 .yorum-diagram-modal .mermaid { text-align: center; }

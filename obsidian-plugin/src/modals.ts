@@ -17,11 +17,15 @@ export class LensModal extends SuggestModal<string> {
   getSuggestions(query: string): string[] {
     const q = query.trim().toLowerCase();
     const presets = [AUTO_LENS, ...LENS_PRESETS].filter((l) => !q || l.toLowerCase().includes(q));
-    return q && !presets.some((l) => l.toLowerCase() === q) ? [query.trim(), ...presets] : presets;
+    // Matching presets first (typing "holling" should pick the full framework name); the typed
+    // text itself is offered last, for frameworks that aren't presets.
+    return q && !presets.some((l) => l.toLowerCase() === q) ? [...presets, query.trim()] : presets;
   }
 
   renderSuggestion(lens: string, el: HTMLElement): void {
-    el.setText(lens === AUTO_LENS ? "✨ Surprise me — a fitting framework from another field" : lens);
+    if (lens === AUTO_LENS) el.setText("✨ Surprise me — a fitting framework from another field");
+    else if ([...LENS_PRESETS].includes(lens)) el.setText(lens);
+    else el.setText(`Use “${lens}”`);
   }
 
   onChooseSuggestion(lens: string): void {

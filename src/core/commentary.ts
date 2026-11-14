@@ -59,12 +59,21 @@ export class CommentaryService<S extends NoteStore = NoteStore> {
   private readonly locks = new Map<string, Promise<unknown>>();
   private readonly index: VaultIndex;
 
+  private readonly now: () => Date;
+  private readonly charts: boolean;
+
+  /**
+   * `charts`: whether this app can draw Vega-Lite charts (the web app can, the Obsidian plugin
+   * can't); when false the model isn't offered that visual format.
+   */
   constructor(
     readonly store: S,
     private readonly llm: LlmClient,
-    private readonly now: () => Date = () => new Date(),
+    options: { charts?: boolean; now?: () => Date } = {},
   ) {
     this.index = new VaultIndex(store);
+    this.charts = options.charts ?? true;
+    this.now = options.now ?? (() => new Date());
   }
 
   /** Notes and attachments, plus how many comment threads each note has. */
@@ -220,7 +229,7 @@ export class CommentaryService<S extends NoteStore = NoteStore> {
   private async context(notePath: string, markdown: string, sidecar: Sidecar, thread: Thread, action: ActionId | null) {
     const lastQuestion = [...thread.messages].reverse().find((m) => m.role === "user")?.content ?? "";
     const related = await this.index.related(notePath, `${thread.anchor?.quote ?? ""} ${lastQuestion}`);
-    const messages = buildMessages({ noteTitle: titleOf(notePath), noteText: markdown, sidecar, thread, related });
+    const messages = buildMessages({ noteTitle: titleOf(notePath), noteText: markdown, sidecar, thread, related, charts: this.charts });
     const spec: ActionSpec | null = action ? ACTIONS[action] : null;
     return { messages, related, fast: spec?.fast ?? false };
   }

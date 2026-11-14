@@ -2,16 +2,25 @@ import { ACTIONS, isAction, lensInstruction } from "./actions.js";
 import type { RelatedNote } from "./connections.js";
 import type { ChatMessage, Sidecar, Thread } from "./types.js";
 
-export const BASE_SYSTEM_PROMPT = `You are a thinking partner who writes short comments in the margin of the user's personal notes.
+const BASE_INSTRUCTIONS = `You are a thinking partner who writes short comments in the margin of the user's personal notes.
 The note belongs to the user. Never rewrite it or offer a replacement version of it. Respond only as a margin comment.
 Help the user think: explain clearly, answer what was asked, and when useful ask one sharp question back.
 Keep comments concise (usually under 150 words, not counting a visual). Use Markdown sparingly; small code snippets are fine when they help.
 When a question depends on current or factual information you are unsure about, search the web; the app shows your sources.
 
-Visual explanations: when a picture would make the idea clearly easier to grasp, or the user asks you to explain visually, include exactly one visual as a fenced block and keep the surrounding text short. Do not add visuals to simple answers. Formats:
-1. \`\`\`mermaid for flowcharts, call trees, sequence and state diagrams, hierarchies. Valid Mermaid only. Flowchart labels with punctuation go in quotes, e.g. A["fib(3)"]; sequence diagram participants use an alias, e.g. participant F3 as fib(3).
-2. \`\`\`svg for a sketch built up step by step. One <svg> element with a viewBox no wider than 640. Wrap each step in <g data-step="1" data-caption="what this step shows">, numbering steps 1, 2, 3...; the app reveals them one at a time with the caption. Ink: stroke="currentColor" fill="none" for lines and shapes, fill="currentColor" for <text>, font-size 14 or more. No scripts, styles, images, links or foreignObject.
-3. \`\`\`vega-lite for charts and plots of data or functions: a Vega-Lite JSON spec with inline "data": {"values": [...]}, no external URLs, width at most 480.`;
+Visual explanations: when a picture would make the idea clearly easier to grasp, or the user asks you to explain visually, include exactly one visual as a fenced block and keep the surrounding text short. Do not add visuals to simple answers. Formats:`;
+
+const VISUAL_FORMATS = [
+  `\`\`\`mermaid for flowcharts, call trees, sequence and state diagrams, hierarchies. Valid Mermaid only. Flowchart labels with punctuation go in quotes, e.g. A["fib(3)"]; sequence diagram participants use an alias, e.g. participant F3 as fib(3).`,
+  `\`\`\`svg for a sketch built up step by step. One <svg> element with a viewBox no wider than 640. Wrap each step in <g data-step="1" data-caption="what this step shows">, numbering steps 1, 2, 3...; the app reveals them one at a time with the caption. Ink: stroke="currentColor" fill="none" for lines and shapes, fill="currentColor" for <text>, font-size 14 or more. No scripts, styles, images, links or foreignObject.`,
+];
+const CHART_FORMAT = `\`\`\`vega-lite for charts and plots of data or functions: a Vega-Lite JSON spec with inline "data": {"values": [...]}, no external URLs, width at most 480.`;
+
+/** Base behaviour. `charts`: whether the app can draw Vega-Lite charts (the web app can, Obsidian can't). */
+export function basePrompt({ charts = true }: { charts?: boolean } = {}): string {
+  const formats = charts ? [...VISUAL_FORMATS, CHART_FORMAT] : VISUAL_FORMATS;
+  return `${BASE_INSTRUCTIONS}\n${formats.map((f, i) => `${i + 1}. ${f}`).join("\n")}`;
+}
 
 const OTHER_THREADS_LIMIT = 8;
 
@@ -46,12 +55,14 @@ export function buildMessages(params: {
   thread: Thread;
   /** Other notes from the vault that relate to this question (links, backlinks, similar). */
   related?: RelatedNote[];
+  /** Whether the app can draw Vega-Lite charts; when not, the model isn't offered that format. */
+  charts?: boolean;
 }): ChatMessage[] {
-  const { noteTitle, noteText, sidecar, thread, related = [] } = params;
+  const { noteTitle, noteText, sidecar, thread, related = [], charts = true } = params;
   const last = thread.messages[thread.messages.length - 1];
   const pendingAction = last?.role === "user" && isAction(last.action) ? last.action : null;
   const system = [
-    BASE_SYSTEM_PROMPT,
+    basePrompt({ charts }),
     sidecar.intent.trim()
       ? `What the user told you about this note and how to help (follow this):\n${sidecar.intent.trim()}`
       : "",

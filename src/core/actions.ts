@@ -27,7 +27,7 @@ export const ACTIONS = {
     label: "Visualize",
     question: "Explain this visually.",
     instruction:
-      "Answer mainly with exactly one visual (Mermaid, a step-by-step svg sketch, or a Vega-Lite chart — whichever fits best) and at most two sentences of text.",
+      "Answer mainly with exactly one visual (whichever of the visual formats above fits best) and at most two sentences of text.",
   },
   angle: {
     label: "Another angle",

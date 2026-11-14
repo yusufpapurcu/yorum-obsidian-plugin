@@ -112,7 +112,8 @@ export class GeminiGroundedClient implements LlmClient {
 
 /**
  * Number the sources in order of first citation, resolve their URLs, and insert Markdown
- * citation links (`[[1]](url)`) where the grounded segments end. Markers that would land
+ * citation links (`[\[1\]](url)`, brackets escaped so Obsidian doesn't read `[[1]]` as a wiki link)
+ * where the grounded segments end. Markers that would land
  * inside a fenced block (a diagram or code) are dropped; the source stays listed.
  */
 export async function groundedReply(
@@ -156,7 +157,7 @@ export async function groundedReply(
     // A marker inside an open fence (diagram or code) would break it.
     if ((out.match(/^\s*(```|~~~)/gm)?.length ?? 0) % 2 === 1) continue;
     const numbers = [...new Set(s.chunks.map((c) => numberOf.get(c)!))].sort((a, b) => a - b);
-    out += numbers.map((n) => `[[${n}]](${sources[n - 1].url})`).join("");
+    out += numbers.map((n) => `[\\[${n}\\]](${sources[n - 1].url})`).join("");
   }
   out += decode(cursor);
   return { content: out.trim(), sources };

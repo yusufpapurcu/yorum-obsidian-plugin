@@ -348,8 +348,8 @@ describe("web search grounding", () => {
       { title: "unused.org", url: "https://real.example/unused.org" },
     ]);
     expect(reply.content).toBe(
-      "Café → first claim[[1]](https://real.example/a.org)[[2]](https://real.example/b.org)." +
-        " Second claim[[2]](https://real.example/b.org).",
+      "Café → first claim[\\[1\\]](https://real.example/a.org)[\\[2\\]](https://real.example/b.org)." +
+        " Second claim[\\[2\\]](https://real.example/b.org).",
     );
   });
 
@@ -367,7 +367,7 @@ describe("web search grounding", () => {
       },
       identity,
     );
-    expect(reply.content).toBe("Intro claim[[1]](https://redirect/a.org).\n```mermaid\ngraph TD\nA-->B\n```\nDone.");
+    expect(reply.content).toBe("Intro claim[\\[1\\]](https://redirect/a.org).\n```mermaid\ngraph TD\nA-->B\n```\nDone.");
   });
 
   it("returns plain text and no sources when the model did not search", async () => {
@@ -416,7 +416,7 @@ describe("web search grounding", () => {
 
     expect(deltas).toEqual(["Python 3.15", " is out."]);
     expect(reply).toEqual({
-      content: "Python 3.15[[1]](https://redirect/python.org) is out.",
+      content: "Python 3.15[\\[1\\]](https://redirect/python.org) is out.",
       sources: [{ title: "python.org", url: "https://redirect/python.org" }],
     });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -856,6 +856,15 @@ describe("copy as Obsidian callout", () => {
       ].join("\n"),
     );
   });
+
+  it("rewrites stored [[1]](url) citations so Obsidian doesn't read them as wiki links", () => {
+    const md = toObsidianCallout({
+      question: "Q",
+      answer: "Claim[[1]](https://a.example/x)[[2]](https://b.example/y), see [[Systems thinking]].",
+      date: new Date("2026-11-13T10:00:00Z"),
+    });
+    expect(md).toContain("> Claim[\\[1\\]](https://a.example/x)[\\[2\\]](https://b.example/y), see [[Systems thinking]].");
+  });
 });
 
 describe("search", () => {
@@ -990,5 +999,16 @@ describe("AI data follows its note", () => {
 
     await service.deleteNoteData("Renamed.md");
     expect(await saved("Renamed.md")).toBeNull();
+  });
+});
+
+describe("visual formats per app", () => {
+  it("offers Vega-Lite charts only where they can be drawn (web app yes, Obsidian plugin no)", async () => {
+    const llm = new MockLlm();
+    await new CommentaryService(new FsNoteStore(dir), llm).ask(NOTE, { anchor: null, action: "visualize" });
+    await new CommentaryService(new FsNoteStore(dir), llm, { charts: false }).ask(NOTE, { anchor: null, action: "visualize" });
+    expect(llm.calls[0][0].content).toContain("```vega-lite");
+    expect(llm.calls[1][0].content).not.toContain("vega-lite");
+    expect(llm.calls[1][0].content).toContain("```mermaid");
   });
 });

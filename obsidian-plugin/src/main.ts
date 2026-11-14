@@ -190,7 +190,8 @@ export default class YorumPlugin extends Plugin {
       OPENAI_MODEL: this.settings.model,
       WEB_SEARCH: this.settings.webSearch ? undefined : "off",
     });
-    this.service = new CommentaryService(new ObsidianNoteStore(this.app), client);
+    // Obsidian can't draw Vega-Lite charts, so the model is only offered Mermaid and sketches.
+    this.service = new CommentaryService(new ObsidianNoteStore(this.app), client, { charts: false });
     this.llmInfo = { model, webSearch, endpoint };
   }
 

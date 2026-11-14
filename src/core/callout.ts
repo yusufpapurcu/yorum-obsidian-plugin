@@ -7,6 +7,15 @@ import type { Source } from "./types.js";
  */
 
 const SVG_FENCE = /```svg\s*\n([\s\S]*?)```/g;
+const LEGACY_CITATION = /\[\[(\d+)\]\]\((https?:\/\/[^)\s]+)\)/g;
+
+/**
+ * Citation links used to be written `[[1]](url)`, which Obsidian reads as a wiki link to "1"
+ * followed by a bare URL. Rewrite them to `[\[1\]](url)` (rendered as a link labelled [1]).
+ */
+export function escapeCitations(markdown: string): string {
+  return markdown.replace(LEGACY_CITATION, "[\\[$1\\]]($2)");
+}
 
 export interface CalloutInput {
   question: string;
@@ -29,7 +38,7 @@ export function toObsidianCallout({
   const title = `yorum · ${lens ? `${lens} · ` : ""}${day}`;
   // Obsidian has no ```svg renderer, but renders inline <svg>: unwrap sketches so they show up.
   // Every step is visible in the export — the final picture.
-  const body = answer.replace(SVG_FENCE, (_, svg: string) => svg.trim().replace(/\n\s*\n/g, "\n"));
+  const body = escapeCitations(answer).replace(SVG_FENCE, (_, svg: string) => svg.trim().replace(/\n\s*\n/g, "\n"));
   const lines = [
     `[!ai]+ ${title}`,
     ...(quote ? [`*On:* "${quote.replace(/\s+/g, " ").trim()}"`, ""] : []),

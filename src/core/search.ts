@@ -53,6 +53,8 @@ export function plainText(markdown: string): string {
     .replace(NOISY_FENCES, " ")
     .replace(/\$\$[\s\S]*?\$\$/g, " ")
     .replace(/^```.*$/gm, " ")
+    // Citation markers ([\[1\]](url), and the older [[1]](url)) carry no words.
+    .replace(/\[(?:\\\[\d+\\\]|\[\d+\])\]\([^)]*\)/g, "")
     .replace(/!?\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
     .replace(/!?\[\[([^\]]+)\]\]/g, "$1")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")

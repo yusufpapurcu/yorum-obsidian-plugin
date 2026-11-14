@@ -1,4 +1,5 @@
 import { type App, type Component, MarkdownRenderer, sanitizeHTMLToDom } from "obsidian";
+import { escapeCitations } from "../../src/core/callout.js";
 import type { Message } from "../../src/core/types.js";
 
 /**
@@ -14,7 +15,22 @@ export async function renderComment(
   component: Component,
 ): Promise<void> {
   el.empty();
-  await MarkdownRenderer.render(app, message.content, el, sourcePath, component);
+  await MarkdownRenderer.render(app, escapeCitations(message.content), el, sourcePath, component);
+  // Diagrams get scaled to the container; in the narrow panel that shrinks wide ones until they're
+  // unreadable. Keep each at its natural size and let wide ones scroll sideways. Obsidian's own
+  // renderer puts the natural width in the `width` attribute (capped by max-width: 100%); classic
+  // Mermaid uses width="100%" and records it as max-width. Diagrams render later, hence the observer.
+  const naturalSize = () => {
+    for (const svg of Array.from(el.querySelectorAll<SVGSVGElement>(".mermaid svg:not([data-yorum-sized])"))) {
+      svg.dataset.yorumSized = "true";
+      if (svg.getAttribute("width")?.endsWith("%") && svg.style.maxWidth.endsWith("px")) svg.style.width = svg.style.maxWidth;
+      svg.style.maxWidth = "none";
+    }
+  };
+  const observer = new MutationObserver(naturalSize);
+  observer.observe(el, { childList: true, subtree: true });
+  component.register(() => observer.disconnect());
+  naturalSize();
   for (const a of Array.from(el.querySelectorAll<HTMLAnchorElement>("a.external-link"))) {
     if (/^\[\d+\]$/.test(a.textContent ?? "")) a.addClass("yorum-cite");
   }
