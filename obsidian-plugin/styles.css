@@ -126,3 +126,5 @@
 .yorum-diagram-modal { width: min(1100px, 92vw); }
 .yorum-diagram-modal .mermaid { text-align: center; }
 .yorum-diagram-modal .mermaid svg { max-width: 100% !important; height: auto; }
+
+.yorum-sign-in-code { font-family: var(--font-monospace); font-size: 1.6em; letter-spacing: 0.1em; text-align: center; user-select: all; }

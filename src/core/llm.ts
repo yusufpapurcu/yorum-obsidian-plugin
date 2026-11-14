@@ -5,6 +5,7 @@ import type { ChatMessage, CompleteOptions, LlmClient, LlmReply } from "./types.
 
 export interface OpenAICompatibleConfig {
   baseUrl: string;
+  /** Empty for servers without auth (local models): no Authorization header is sent. */
   apiKey: string;
   model: string;
 }
@@ -23,7 +24,7 @@ export class OpenAICompatibleClient implements LlmClient {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${this.config.apiKey}`,
+        ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
       },
       body: JSON.stringify({ model: this.config.model, messages, stream: true }),
     });
@@ -73,12 +74,12 @@ export function clientFromEnv(env: Record<string, string | undefined>): {
   /** Host the model requests go to (shown in the context inspector); null when unconfigured. */
   endpoint: string | null;
 } {
-  const required = ["OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL"] as const;
+  const required = ["OPENAI_BASE_URL", "OPENAI_MODEL"] as const;
   const missing = required.filter((key) => !env[key]?.trim());
   if (missing.length) return { client: new UnconfiguredClient(missing), model: null, webSearch: false, endpoint: null };
   const model = env.OPENAI_MODEL!.trim();
   const baseUrl = env.OPENAI_BASE_URL!.trim();
-  const apiKey = env.OPENAI_API_KEY!.trim();
+  const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
 
   const isGemini = /(^|\/)gemini/i.test(model);
   if (isGemini && env.WEB_SEARCH?.trim().toLowerCase() !== "off") {

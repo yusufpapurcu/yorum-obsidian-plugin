@@ -7,6 +7,7 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
+  Platform,
   SecretComponent,
   Setting,
   type TAbstractFile,
@@ -17,12 +18,14 @@ import {
 } from "obsidian";
 import { ACTIONS, type ActionId } from "../../src/core/actions.js";
 import { type AskInput, CommentaryService, type NoteView, type ReplyInput } from "../../src/core/commentary.js";
+import { CHATGPT_ENDPOINT, ChatGptClient, ChatGptSession, type ChatGptTokens, parseTokens } from "../../src/core/chatgpt.js";
 import { UnconfiguredClient, clientFromEnv } from "../../src/core/llm.js";
 import { blockIndexAt } from "../../src/core/note.js";
 import type { Anchor } from "../../src/core/types.js";
 import { anchorHighlights, findQuote, setAnchors } from "./highlights.js";
-import { InspectorModal, LensModal, SearchModal } from "./modals.js";
-import { type YorumSettings, DEFAULT_SETTINGS, loadSettings } from "./settings.js";
+import { ChatGptSignInModal, InspectorModal, LensModal, SearchModal } from "./modals.js";
+import { CHATGPT_SECRET_ID, type YorumSettings, DEFAULT_SETTINGS, loadSettings } from "./settings.js";
+import { fetchWithoutCors } from "./chatgpt.js";
 import { SIDECAR_DIR, sidecarPathFor } from "../../src/core/sidecar.js";
 import { ObsidianNoteStore } from "./store.js";
 import { type AskRequest, YorumView, VIEW_TYPE } from "./view.js";
@@ -167,32 +170,50 @@ export default class YorumPlugin extends Plugin {
 
   /**
    * (Re)create the model client from settings; called on load and whenever settings change.
-   * The API key is read from Obsidian's secret storage, never from data.json.
+   * Credentials are read from Obsidian's secret storage, never from data.json.
    */
   rebuildService(): void {
-    const apiKey = this.settings.apiKeySecret ? this.app.secretStorage.getSecret(this.settings.apiKeySecret) : null;
-    const missing = [
-      !this.settings.baseUrl && "Base URL",
-      !apiKey && "API key secret",
-      !this.settings.model && "Model",
-    ].filter((m): m is string => Boolean(m));
-    if (missing.length) {
-      this.service = new CommentaryService(
-        new ObsidianNoteStore(this.app),
-        new UnconfiguredClient(missing, "in Settings → Yorum"),
-      );
+    const store = new ObsidianNoteStore(this.app);
+    const unconfigured = (missing: (string | false)[]) => {
+      const names = missing.filter((m): m is string => Boolean(m));
+      if (!names.length) return false;
+      this.service = new CommentaryService(store, new UnconfiguredClient(names, "in Settings → Yorum"));
       this.llmInfo = { model: null, webSearch: false, endpoint: null };
+      return true;
+    };
+
+    if (this.settings.provider === "chatgpt") {
+      const tokens = this.chatGptTokens();
+      const model = this.settings.chatgptModel;
+      if (unconfigured([!tokens && "ChatGPT sign-in", !model && "Model"])) return;
+      const session = new ChatGptSession(tokens!, (t) => this.storeChatGptTokens(t), fetchWithoutCors);
+      const client = new ChatGptClient({ model, session, fetch: fetchWithoutCors });
+      // Obsidian can't draw Vega-Lite charts, so the model is only offered Mermaid and sketches.
+      this.service = new CommentaryService(store, client, { charts: false });
+      this.llmInfo = { model, webSearch: false, endpoint: CHATGPT_ENDPOINT };
       return;
     }
+
+    // The API key is optional: local servers (Ollama, LM Studio…) usually need none.
+    if (unconfigured([!this.settings.baseUrl && "Base URL", !this.settings.model && "Model"])) return;
+    const apiKey = this.settings.apiKeySecret ? this.app.secretStorage.getSecret(this.settings.apiKeySecret) : null;
     const { client, model, webSearch, endpoint } = clientFromEnv({
       OPENAI_BASE_URL: this.settings.baseUrl,
-      OPENAI_API_KEY: apiKey!,
+      OPENAI_API_KEY: apiKey ?? undefined,
       OPENAI_MODEL: this.settings.model,
       WEB_SEARCH: this.settings.webSearch ? undefined : "off",
     });
-    // Obsidian can't draw Vega-Lite charts, so the model is only offered Mermaid and sketches.
-    this.service = new CommentaryService(new ObsidianNoteStore(this.app), client, { charts: false });
+    this.service = new CommentaryService(store, client, { charts: false });
     this.llmInfo = { model, webSearch, endpoint };
+  }
+
+  chatGptTokens(): ChatGptTokens | null {
+    return parseTokens(this.app.secretStorage.getSecret(CHATGPT_SECRET_ID));
+  }
+
+  /** Saves (or with null, forgets) the ChatGPT sign-in on this device. */
+  storeChatGptTokens(tokens: ChatGptTokens | null): void {
+    this.app.secretStorage.setSecret(CHATGPT_SECRET_ID, tokens ? JSON.stringify(tokens) : "");
   }
 
   async saveSettings(): Promise<void> {
@@ -372,9 +393,23 @@ class YorumSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("p", {
-      text: "Any OpenAI-compatible endpoint. AI comments are stored in the hidden .yorum/ folder at the vault root (one JSON file per note, mirroring its path); your notes are never changed unless you insert an answer yourself.",
+      text: "Answers come from your ChatGPT account or any OpenAI-compatible endpoint. AI comments are stored in the hidden .yorum/ folder at the vault root (one JSON file per note, mirroring its path); your notes are never changed unless you insert an answer yourself.",
     });
-    const text = (name: string, desc: string, key: "baseUrl" | "model", placeholder: string) =>
+    new Setting(containerEl)
+      .setName("Provider")
+      .setDesc("ChatGPT account: answers count against your ChatGPT plan, no API key needed.")
+      .addDropdown((d) =>
+        d
+          .addOption("openai-compatible", "OpenAI-compatible API")
+          .addOption("chatgpt", "ChatGPT account")
+          .setValue(this.plugin.settings.provider)
+          .onChange(async (value) => {
+            this.plugin.settings.provider = value as YorumSettings["provider"];
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+    const text = (name: string, desc: string, key: "baseUrl" | "model" | "chatgptModel", placeholder: string) =>
       new Setting(containerEl)
         .setName(name)
         .setDesc(desc)
@@ -387,28 +422,34 @@ class YorumSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             }),
         );
-    text("Base URL", "e.g. https://api.openai.com/v1 or the full …/chat/completions URL", "baseUrl", "https://api.openai.com/v1");
-    new Setting(containerEl)
-      .setName("API key")
-      .setDesc(
-        "Kept in Obsidian's Keychain (Settings → Keychain) on this device — not in the vault, so obsidian-git never commits it. Pick an existing secret or create one.",
-      )
-      .addComponent((el) =>
-        new SecretComponent(this.app, el).setValue(this.plugin.settings.apiKeySecret).onChange(async (id) => {
-          this.plugin.settings.apiKeySecret = id ?? "";
-          await this.plugin.saveSettings();
-        }),
-      );
-    text("Model", "Gemini models (e.g. google/gemini-…) get web search with sources.", "model", "gpt-4o-mini");
-    new Setting(containerEl)
-      .setName("Web search")
-      .setDesc("For Gemini models: let the model search the web when needed and cite sources.")
-      .addToggle((t) =>
-        t.setValue(this.plugin.settings.webSearch).onChange(async (value) => {
-          this.plugin.settings.webSearch = value;
-          await this.plugin.saveSettings();
-        }),
-      );
+
+    if (this.plugin.settings.provider === "chatgpt") {
+      this.chatGptAccount(containerEl);
+      text("Model", "A model your plan offers in Codex, e.g. gpt-5.6-terra.", "chatgptModel", "gpt-5.6-terra");
+    } else {
+      text("Base URL", "e.g. https://api.openai.com/v1, http://localhost:11434/v1, or the full …/chat/completions URL", "baseUrl", "https://api.openai.com/v1");
+      new Setting(containerEl)
+        .setName("API key")
+        .setDesc(
+          "Optional: leave empty for local servers that need no key. Kept in Obsidian's Keychain (Settings → Keychain) on this device — not in the vault, so obsidian-git never commits it. Pick an existing secret or create one.",
+        )
+        .addComponent((el) =>
+          new SecretComponent(this.app, el).setValue(this.plugin.settings.apiKeySecret).onChange(async (id) => {
+            this.plugin.settings.apiKeySecret = id ?? "";
+            await this.plugin.saveSettings();
+          }),
+        );
+      text("Model", "Gemini models (e.g. google/gemini-…) get web search with sources.", "model", "gpt-4o-mini");
+      new Setting(containerEl)
+        .setName("Web search")
+        .setDesc("For Gemini models: let the model search the web when needed and cite sources.")
+        .addToggle((t) =>
+          t.setValue(this.plugin.settings.webSearch).onChange(async (value) => {
+            this.plugin.settings.webSearch = value;
+            await this.plugin.saveSettings();
+          }),
+        );
+    }
     new Setting(containerEl)
       .setName("Delete AI comments with their note")
       .setDesc(
@@ -420,6 +461,40 @@ class YorumSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }),
       );
+  }
+
+  /** Sign-in state and buttons. The sign-in is kept in the Keychain on this device only. */
+  private chatGptAccount(containerEl: HTMLElement): void {
+    const tokens = this.plugin.chatGptTokens();
+    const setting = new Setting(containerEl).setName("ChatGPT account");
+    const signIn = (mode: "browser" | "code") =>
+      new ChatGptSignInModal(this.app, mode, (t) => {
+        this.plugin.storeChatGptTokens(t);
+        this.plugin.rebuildService();
+        this.display();
+      }).open();
+    if (tokens) {
+      setting
+        .setDesc(`Signed in${tokens.email ? ` as ${tokens.email}` : ""} on this device.`)
+        .addButton((b) =>
+          b.setButtonText("Sign out").onClick(() => {
+            this.plugin.storeChatGptTokens(null);
+            this.plugin.rebuildService();
+            this.display();
+          }),
+        );
+      return;
+    }
+    setting.setDesc(
+      Platform.isDesktopApp
+        ? "Not signed in. Sign in opens your browser; if that doesn't work, use a one-time code."
+        : "Not signed in. You'll enter a one-time code on OpenAI's sign-in page.",
+    );
+    if (Platform.isDesktopApp) setting.addButton((b) => b.setButtonText("Sign in").setCta().onClick(() => signIn("browser")));
+    setting.addButton((b) => {
+      b.setButtonText(Platform.isDesktopApp ? "Use a code" : "Sign in").onClick(() => signIn("code"));
+      if (!Platform.isDesktopApp) b.setCta();
+    });
   }
 }
 

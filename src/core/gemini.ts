@@ -70,7 +70,10 @@ export class GeminiGroundedClient implements LlmClient {
     const url = `${this.config.baseUrl.replace(/\/+$/, "")}/models/${this.config.model}:streamGenerateContent?alt=sse`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${this.config.apiKey}` },
+      headers: {
+        "content-type": "application/json",
+        ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
+      },
       body: JSON.stringify(body),
     });
     if (!res.ok || !res.body) {

@@ -20,8 +20,10 @@ describe("plugin settings: API key in Obsidian secret storage", () => {
     );
     expect(migrated).toBe(true);
     expect(settings).toEqual({
+      provider: "openai-compatible",
       baseUrl: "https://gw/v1",
       model: "m",
+      chatgptModel: "",
       webSearch: false,
       apiKeySecret: "yorum-api-key",
       deleteAiDataWithNote: false,
@@ -41,7 +43,15 @@ describe("plugin settings: API key in Obsidian secret storage", () => {
   it("leaves already-migrated settings alone and only rewrites when needed", () => {
     const secrets = fakeSecrets({ "yorum-api-key": "sk" });
     expect(loadSettings({ model: "m", apiKeySecret: "yorum-api-key" }, secrets)).toEqual({
-      settings: { baseUrl: "", model: "m", webSearch: true, apiKeySecret: "yorum-api-key", deleteAiDataWithNote: false },
+      settings: {
+        provider: "openai-compatible",
+        baseUrl: "",
+        model: "m",
+        chatgptModel: "",
+        webSearch: true,
+        apiKeySecret: "yorum-api-key",
+        deleteAiDataWithNote: false,
+      },
       migrated: false,
     });
     // An empty leftover key field is still removed from data.json.

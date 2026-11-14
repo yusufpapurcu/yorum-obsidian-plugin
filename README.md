@@ -19,13 +19,13 @@ vault/
 
 There is one exception, and it's a button: **Insert below passage** copies an answer into your note as a callout when you click it.
 
-**Bring your own key (BYOK).** There is no yorum account, server or telemetry. You point it at any OpenAI-compatible endpoint (OpenAI, OpenRouter, a gateway, a local server) with your own key. Requests go straight from your device to that endpoint. In Obsidian the key is kept in Obsidian's Keychain on that device, never in the vault. **What the AI sees** shows the exact request before you rely on it.
+**Bring your own key (BYOK) or ChatGPT account.** There is no yorum account, server or telemetry. You point it at any OpenAI-compatible endpoint (OpenAI, OpenRouter, a gateway, a local server) with your own key, or no key for a local server. In Obsidian you can instead sign in with your ChatGPT account, and answers count against your ChatGPT plan. Requests go straight from your device to that endpoint. In Obsidian the key and the ChatGPT sign-in are kept in Obsidian's Keychain on that device, never in the vault. **What the AI sees** shows the exact request before you rely on it.
 
 ### Network use and accounts
 
-- **The only remote service is the AI endpoint you configure.** yorum sends a request there when you ask something (a question, a quick action, a lens, a suggested intent), and at no other time. The request contains the current note, excerpts of up to four related notes, the passage and the thread. *What the AI sees* shows exactly what goes out.
+- **The only remote services are the AI endpoint you configure** (with a ChatGPT account: `chatgpt.com`, plus `auth.openai.com` to sign in and renew the sign-in). yorum sends a request there when you ask something (a question, a quick action, a lens, a suggested intent), and at no other time. The request contains the current note, excerpts of up to four related notes, the passage and the thread. *What the AI sees* shows exactly what goes out.
 - **Web search**: with a Gemini model and *Web search* on, the request asks the model to use Google Search. That search happens on the provider's side; yorum itself contacts nothing else.
-- **Account and payment**: you need an account and an API key with an AI provider of your choice. Most providers charge for API use. A self-hosted OpenAI-compatible server needs no account.
+- **Account and payment**: you need either an API key with an AI provider of your choice (most charge for API use) or, in Obsidian, a ChatGPT plan that includes Codex. A self-hosted OpenAI-compatible server needs no account and no key.
 - **No telemetry**, no analytics, no update checks, no yorum server.
 
 ## What it does
@@ -96,13 +96,16 @@ npm run plugin:install -- /path/to/your/vault   # builds and copies main.js, man
 In Obsidian (1.11.4 or newer):
 
 1. Go to Settings → Community plugins and enable **Yorum**.
-2. In its settings, set the base URL and model, and pick or create the API key secret.
+2. In its settings, pick a provider:
+   - **ChatGPT account**: click **Sign in** (your browser opens) or **Use a code** (enter a one-time code on OpenAI's page), then set a model your plan offers in Codex, e.g. `gpt-5.6-terra`.
+   - **OpenAI-compatible API**: set the base URL and model, and pick or create the API key secret (optional; leave it empty for a local server).
 
-![Yorum settings: base URL, API key kept in Obsidian's Keychain, model, web search, delete-with-note](docs/images/settings.png)
+![Yorum settings: provider set to ChatGPT account, signed in, model, delete-with-note](docs/images/settings.png)
 
-- **API key**: kept in Obsidian's Keychain (secret storage) on that device. `data.json` only stores the secret's name, so it is safe to commit. Enter the key once per device.
+- **API key**: optional. Kept in Obsidian's Keychain (secret storage) on that device. `data.json` only stores the secret's name, so it is safe to commit. Enter the key once per device.
+- **ChatGPT account**: uses the same sign-in as OpenAI's Codex CLI. The sign-in is kept in Obsidian's Keychain on that device (sign in once per device) and renewed automatically; **Sign out** forgets it. Browser sign-in listens on `127.0.0.1:1455` for the redirect (desktop only). Code sign-in works everywhere but must first be turned on in ChatGPT → Settings → Security. Web search isn't offered with a ChatGPT account.
 - **Endpoint**: any OpenAI-compatible endpoint works, as long as it allows requests from Obsidian (CORS).
-- **Mobile**: the plugin uses no Node APIs, so it should work on mobile, but that's untested.
+- **Mobile**: untested. The plugin uses Node APIs only on desktop (ChatGPT browser sign-in and requests to `chatgpt.com`, which doesn't allow CORS). On mobile, ChatGPT answers arrive all at once instead of streaming.
 - **Panel**: open it from the ribbon icon or "Yorum: Open panel". It follows the active note. Click a diagram to see it full size.
 
 ### With obsidian-git
@@ -116,7 +119,7 @@ In Obsidian (1.11.4 or newer):
 The same core runs as a small local web app on any folder of Markdown files:
 
 ```sh
-cp .env.example .env   # any OpenAI-compatible endpoint: OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_MODEL
+cp .env.example .env   # any OpenAI-compatible endpoint: OPENAI_BASE_URL, OPENAI_MODEL, optional OPENAI_API_KEY
 npm install
 npm run build
 npm start                       # serves ./sample-vault on http://127.0.0.1:4317
@@ -127,7 +130,7 @@ npm start -- /path/to/folder    # or VAULT_DIR=...; PORT=... to change the port
 - **Live sync**: edits made in Obsidian or by a git pull show up live.
 - **Open in Obsidian ↗** jumps back to the note when the folder is a registered vault. Set **`OBSIDIAN_CONFIG`** if Obsidian's `obsidian.json` isn't in the default place.
 - **Charts**: Vega-Lite charts are drawn here (Obsidian has no chart renderer, so the plugin doesn't offer them to the model).
-- **Without a complete `.env`** the UI still opens; asking returns an error naming the missing keys.
+- **Without `OPENAI_BASE_URL` and `OPENAI_MODEL`** the UI still opens; asking returns an error naming the missing keys. `OPENAI_API_KEY` is optional (local servers).
 - **Web search**: with a Gemini model, requests go through the gateway's native Gemini endpoint (`<origin of OPENAI_BASE_URL>/v1beta`; override with `GEMINI_BASE_URL`) with Google Search grounding. `WEB_SEARCH=off` turns it off.
 
 ## Known limitations (MVP)

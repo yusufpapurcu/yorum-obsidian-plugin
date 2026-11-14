@@ -17,8 +17,8 @@ await esbuild.build({
   format: "cjs",
   platform: "browser",
   target: "es2022",
-  // Provided by Obsidian at runtime.
-  external: ["obsidian", "electron", "@codemirror/state", "@codemirror/view"],
+  // Provided by Obsidian at runtime (Node builtins: desktop only, loaded on demand).
+  external: ["obsidian", "electron", "@codemirror/state", "@codemirror/view", "node:http", "node:https"],
   logLevel: "info",
   sourcemap: production ? false : "inline",
 });

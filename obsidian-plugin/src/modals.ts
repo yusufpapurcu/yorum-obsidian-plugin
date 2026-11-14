@@ -1,8 +1,10 @@
-import { type App, Modal, SuggestModal } from "obsidian";
+import { type App, Modal, Notice, Setting, SuggestModal } from "obsidian";
 import { AUTO_LENS, LENS_PRESETS } from "../../src/core/actions.js";
+import { CHATGPT_DEVICE_PAGE, type ChatGptTokens, requestDeviceCode, waitForDeviceCode } from "../../src/core/chatgpt.js";
 import type { RelatedNote } from "../../src/core/connections.js";
 import type { SearchHit, Snippet } from "../../src/core/search.js";
 import type { ChatMessage } from "../../src/core/types.js";
+import { fetchWithoutCors, signInWithBrowser } from "./chatgpt.js";
 
 /** Pick a framework to explain the passage through: Surprise me, a preset, or anything typed. */
 export class LensModal extends SuggestModal<string> {
@@ -157,6 +159,70 @@ export class DiagramModal extends Modal {
   }
 
   onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * Sign in with a ChatGPT account. "browser": the sign-in page opens in the browser and redirects
+ * back to a local port (desktop). "code": the user types a one-time code on OpenAI's page (any device).
+ * Closing the modal cancels.
+ */
+export class ChatGptSignInModal extends Modal {
+  private readonly abort = new AbortController();
+
+  constructor(
+    app: App,
+    private readonly mode: "browser" | "code",
+    private readonly onSignedIn: (tokens: ChatGptTokens) => void,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.setTitle("Sign in with ChatGPT");
+    const status = this.contentEl.createEl("p");
+    const flow = this.mode === "browser" ? this.browser(status) : this.code(status);
+    flow.then(
+      (tokens) => {
+        if (this.abort.signal.aborted) return;
+        this.onSignedIn(tokens);
+        new Notice(`Yorum: signed in to ChatGPT${tokens.email ? ` as ${tokens.email}` : ""}`);
+        this.close();
+      },
+      (err: Error) => {
+        if (!this.abort.signal.aborted) status.setText(err.message);
+      },
+    );
+  }
+
+  private browser(status: HTMLElement): Promise<ChatGptTokens> {
+    status.setText("Finish signing in in your browser, then come back here.");
+    const again = this.contentEl.createEl("p", { cls: "yorum-muted" });
+    return signInWithBrowser((url) => {
+      window.open(url);
+      again.appendText("Browser didn't open? ");
+      again.createEl("a", { text: "Open the sign-in page", href: url });
+    }, this.abort.signal);
+  }
+
+  private async code(status: HTMLElement): Promise<ChatGptTokens> {
+    status.setText("Getting a code…");
+    const code = await requestDeviceCode(fetchWithoutCors);
+    status.setText(`Open ${CHATGPT_DEVICE_PAGE}, sign in, and enter this code:`);
+    this.contentEl.createEl("p", { text: code.userCode, cls: "yorum-sign-in-code" });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Copy code").onClick(() => void navigator.clipboard.writeText(code.userCode)))
+      .addButton((b) => b.setButtonText("Open page").setCta().onClick(() => window.open(CHATGPT_DEVICE_PAGE)));
+    this.contentEl.createEl("p", {
+      cls: "yorum-muted",
+      text: "The code expires in 15 minutes. Code sign-in must be turned on in ChatGPT: Settings → Security.",
+    });
+    return waitForDeviceCode(code, this.abort.signal, fetchWithoutCors);
+  }
+
+  onClose(): void {
+    this.abort.abort();
     this.contentEl.empty();
   }
 }
