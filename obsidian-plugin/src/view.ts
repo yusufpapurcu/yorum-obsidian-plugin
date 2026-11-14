@@ -359,14 +359,17 @@ export class YorumView extends ItemView {
   private async reply(thread: Thread, input: { content?: string; action?: ActionId }): Promise<void> {
     if (!this.note || this.pending) return;
     const question = input.content ?? ACTIONS[input.action!].question;
+    // A typed reply leaves the box now; restore it if the request fails.
+    const draft = input.content !== undefined ? this.drafts.get(thread.id) : undefined;
+    if (draft !== undefined) this.drafts.delete(thread.id);
     this.pending = { threadId: thread.id, question, text: "", context: "" };
     this.render();
     try {
       await this.plugin.service.reply(this.note.path, thread.id, input, this.streamHooks());
-      this.drafts.delete(thread.id);
       this.pending = null;
       await this.reload();
     } catch (err) {
+      if (draft !== undefined) this.drafts.set(thread.id, draft);
       this.pending = null;
       this.render();
       new Notice(`Yorum: ${(err as Error).message}`);
