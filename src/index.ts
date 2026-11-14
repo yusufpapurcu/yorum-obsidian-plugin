@@ -1,4 +1,4 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { CommentaryService } from "./core/commentary.js";
@@ -6,6 +6,9 @@ import { clientFromEnv } from "./core/llm.js";
 import { FsNoteStore } from "./node/fs-store.js";
 import { VaultEvents, watchVault } from "./node/watch.js";
 import { createApp } from "./server.js";
+
+// Settings from ./.env, if present; variables already set in the environment win.
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 const vaultDir = path.resolve(process.argv[2] ?? process.env.VAULT_DIR ?? "sample-vault");
 const port = Number(process.env.PORT ?? 4317);

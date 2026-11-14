@@ -18,13 +18,14 @@ export async function renderComment(
   await MarkdownRenderer.render(app, escapeCitations(message.content), el, sourcePath, component);
   // Diagrams get scaled to the container; in the narrow panel that shrinks wide ones until they're
   // unreadable. Keep each at its natural size and let wide ones scroll sideways. Obsidian's own
-  // renderer puts the natural width in the `width` attribute (capped by max-width: 100%); classic
-  // Mermaid uses width="100%" and records it as max-width. Diagrams render later, hence the observer.
+  // renderer puts the natural width in the `width` attribute (capped by max-width: 100%, which the
+  // yorum-natural-size class lifts); classic Mermaid uses width="100%" and records the natural
+  // width as max-width. Diagrams render later, hence the observer.
   const naturalSize = () => {
-    for (const svg of Array.from(el.querySelectorAll<SVGSVGElement>(".mermaid svg:not([data-yorum-sized])"))) {
-      svg.dataset.yorumSized = "true";
-      if (svg.getAttribute("width")?.endsWith("%") && svg.style.maxWidth.endsWith("px")) svg.style.width = svg.style.maxWidth;
-      svg.style.maxWidth = "none";
+    for (const svg of Array.from(el.querySelectorAll<SVGSVGElement>(".mermaid svg:not(.yorum-natural-size)"))) {
+      const natural = svg.getAttribute("width")?.endsWith("%") ? svg.style.maxWidth : "";
+      if (natural.endsWith("px")) svg.setCssProps({ width: natural });
+      svg.addClass("yorum-natural-size");
     }
   };
   const observer = new MutationObserver(naturalSize);

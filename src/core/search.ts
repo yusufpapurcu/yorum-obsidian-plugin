@@ -63,7 +63,8 @@ export function plainText(markdown: string): string {
     .replace(/(\*\*|__|==|~~|`)/g, "")
     .replace(/(^|\s)[*_](\S[^*_]*\S|\S)[*_](?=\s|[.,;:!?)]|$)/g, "$1$2")
     // Obsidian's inline-math rule: no space inside the dollars, no digit after ("$5 and $10" stays).
-    .replace(/\$(?=\S)([^$\n]+?)(?<=\S)\$(?!\d)/g, "$1");
+    // Written without lookbehind, which iOS before 16.4 can't parse.
+    .replace(/\$(?=\S)([^$\n]*?[^$\s])\$(?!\d)/g, "$1");
 }
 
 /** Fold one character for matching: lowercase, no diacritics, Turkish dotless/dotted i → i. */

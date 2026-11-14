@@ -21,6 +21,13 @@ There is one exception, and it's a button: **Insert below passage** copies an an
 
 **Bring your own key (BYOK).** There is no yorum account, server or telemetry. You point it at any OpenAI-compatible endpoint (OpenAI, OpenRouter, a gateway, a local server) with your own key. Requests go straight from your device to that endpoint. In Obsidian the key is kept in Obsidian's Keychain on that device, never in the vault. **What the AI sees** shows the exact request before you rely on it.
 
+### Network use and accounts
+
+- **The only remote service is the AI endpoint you configure.** yorum sends a request there when you ask something (a question, a quick action, a lens, a suggested intent), and at no other time. The request contains the current note, excerpts of up to four related notes, the passage and the thread. *What the AI sees* shows exactly what goes out.
+- **Web search**: with a Gemini model and *Web search* on, the request asks the model to use Google Search. That search happens on the provider's side; yorum itself contacts nothing else.
+- **Account and payment**: you need an account and an API key with an AI provider of your choice. Most providers charge for API use. A self-hosted OpenAI-compatible server needs no account.
+- **No telemetry**, no analytics, no update checks, no yorum server.
+
 ## What it does
 
 ### Select text, ask about it
@@ -177,9 +184,12 @@ Explain and Simplify use the model's faster thinking level.
 
 ```sh
 npm test               # Vitest, mocked LLM
+npm run lint           # Obsidian's review rules (eslint-plugin-obsidianmd)
 npm run build          # web app (TypeScript → dist/)
 npm run plugin:build   # Obsidian plugin → obsidian-plugin/main.js
 ```
+
+**Releasing the plugin**: set the new `version` in the root `manifest.json` (and its `minAppVersion` if needed), commit, then push a tag with exactly that version, no `v` prefix (`git tag 0.1.1 && git push origin 0.1.1`). The *Release plugin* GitHub Action builds `main.js` and creates the GitHub release with `main.js`, `manifest.json` and `styles.css` attached, which is what Obsidian downloads.
 
 - `src/core/`: framework-free, I/O-free logic shared by the web app and the plugin: the `NoteStore` interface, note parsing, sidecars, vault connections, search, quick actions and lenses, prompt assembly, LLM clients with streaming and Gemini grounding, callout export, and `CommentaryService`.
 - `src/node/`: the web app's server side (filesystem store, vault watcher, Obsidian vault lookup). `src/server.ts` and `src/index.ts` hold the HTTP API and the entry point.

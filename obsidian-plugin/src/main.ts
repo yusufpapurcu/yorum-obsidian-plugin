@@ -263,16 +263,18 @@ export default class YorumPlugin extends Plugin {
     new SearchModal(
       this.app,
       (query) => this.service.search(query),
-      async (path, threadId) => {
-        await this.app.workspace.openLinkText(path, "", false);
-        const file = this.app.vault.getFileByPath(path);
-        const view = await this.activateView();
-        if (file && view) {
-          await view.setFile(file);
-          if (threadId) view.focusThread(threadId, true);
-        }
-      },
+      (path, threadId) => void this.openSearchHit(path, threadId),
     ).open();
+  }
+
+  private async openSearchHit(path: string, threadId: string | null): Promise<void> {
+    await this.app.workspace.openLinkText(path, "", false);
+    const file = this.app.vault.getFileByPath(path);
+    const view = await this.activateView();
+    if (file && view) {
+      await view.setFile(file);
+      if (threadId) view.focusThread(threadId, true);
+    }
   }
 
   async inspect(

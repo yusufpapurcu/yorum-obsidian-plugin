@@ -390,7 +390,9 @@ function validateAnchor(anchor: unknown, blockCount: number): Anchor | null {
 
 function validateAction(action: unknown): ActionId | null {
   if (action === undefined || action === null || action === "") return null;
-  if (!isAction(action)) throw new VaultError(`Unknown action: ${String(action)}`, 400);
+  if (!isAction(action)) {
+    throw new VaultError(`Unknown action: ${typeof action === "string" ? action : JSON.stringify(action)}`, 400);
+  }
   return action;
 }
 

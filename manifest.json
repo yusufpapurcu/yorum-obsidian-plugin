@@ -1,0 +1,10 @@
+{
+  "id": "yorum",
+  "name": "Yorum",
+  "version": "0.1.0",
+  "minAppVersion": "1.11.4",
+  "description": "Ask AI about passages in your notes and get answers in a side panel, saved in separate files so your notes are never changed. Works with your own OpenAI-compatible API key.",
+  "author": "Yusuf Papurcu",
+  "authorUrl": "https://github.com/yusufpapurcu",
+  "isDesktopOnly": false
+}

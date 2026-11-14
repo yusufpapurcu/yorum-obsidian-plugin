@@ -151,7 +151,8 @@ export class DiagramModal extends Modal {
   onOpen(): void {
     this.modalEl.addClass("yorum-diagram-modal");
     const copy = this.diagram.cloneNode(true) as HTMLElement;
-    copy.querySelector("svg")?.setAttribute("style", "max-width: 100%; height: auto;");
+    // In the panel diagrams keep their natural size; here they fit the modal (CSS).
+    copy.querySelector("svg")?.removeClass("yorum-natural-size");
     this.contentEl.append(copy);
   }
 
