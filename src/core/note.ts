@@ -24,7 +24,6 @@ export function parseNote(markdown: string): ParsedNote {
 /**
  * Index of the anchorable block containing `offset` (a character offset into the full note, as an
  * editor reports it), or the nearest block before it; null inside the frontmatter or an empty note.
- * Lets the Obsidian plugin create anchors identical to the web UI's.
  */
 export function blockIndexAt(markdown: string, offset: number): number | null {
   const match = FRONTMATTER.exec(markdown);

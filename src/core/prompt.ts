@@ -14,12 +14,10 @@ const VISUAL_FORMATS = [
   `\`\`\`mermaid for flowcharts, call trees, sequence and state diagrams, hierarchies. Valid Mermaid only. Flowchart labels with punctuation go in quotes, e.g. A["fib(3)"]; sequence diagram participants use an alias, e.g. participant F3 as fib(3).`,
   `\`\`\`svg for a sketch built up step by step. One <svg> element with a viewBox no wider than 640. Wrap each step in <g data-step="1" data-caption="what this step shows">, numbering steps 1, 2, 3...; the app reveals them one at a time with the caption. Ink: stroke="currentColor" fill="none" for lines and shapes, fill="currentColor" for <text>, font-size 14 or more. No scripts, styles, images, links or foreignObject.`,
 ];
-const CHART_FORMAT = `\`\`\`vega-lite for charts and plots of data or functions: a Vega-Lite JSON spec with inline "data": {"values": [...]}, no external URLs, width at most 480.`;
 
-/** Base behaviour. `charts`: whether the app can draw Vega-Lite charts (the web app can, Obsidian can't). */
-export function basePrompt({ charts = true }: { charts?: boolean } = {}): string {
-  const formats = charts ? [...VISUAL_FORMATS, CHART_FORMAT] : VISUAL_FORMATS;
-  return `${BASE_INSTRUCTIONS}\n${formats.map((f, i) => `${i + 1}. ${f}`).join("\n")}`;
+/** Base behaviour. */
+export function basePrompt(): string {
+  return `${BASE_INSTRUCTIONS}\n${VISUAL_FORMATS.map((f, i) => `${i + 1}. ${f}`).join("\n")}`;
 }
 
 const OTHER_THREADS_LIMIT = 8;
@@ -55,14 +53,12 @@ export function buildMessages(params: {
   thread: Thread;
   /** Other notes from the vault that relate to this question (links, backlinks, similar). */
   related?: RelatedNote[];
-  /** Whether the app can draw Vega-Lite charts; when not, the model isn't offered that format. */
-  charts?: boolean;
 }): ChatMessage[] {
-  const { noteTitle, noteText, sidecar, thread, related = [], charts = true } = params;
+  const { noteTitle, noteText, sidecar, thread, related = [] } = params;
   const last = thread.messages[thread.messages.length - 1];
   const pendingAction = last?.role === "user" && isAction(last.action) ? last.action : null;
   const system = [
-    basePrompt({ charts }),
+    basePrompt(),
     sidecar.intent.trim()
       ? `What the user told you about this note and how to help (follow this):\n${sidecar.intent.trim()}`
       : "",

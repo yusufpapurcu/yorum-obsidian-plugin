@@ -52,49 +52,31 @@ export class OpenAICompatibleClient implements LlmClient {
 
 /** Used when configuration is incomplete: the UI still works for reading notes and editing intent. */
 export class UnconfiguredClient implements LlmClient {
-  constructor(
-    private readonly missing: string[],
-    private readonly where = "in .env",
-  ) {}
+  constructor(private readonly missing: string[]) {}
 
   async complete(): Promise<LlmReply> {
-    throw new LlmError(`LLM is not configured; set ${this.missing.join(", ")} ${this.where}`);
+    throw new LlmError(`LLM is not configured; set ${this.missing.join(", ")} in Settings → Yorum`);
   }
 }
 
 /**
- * Gemini models get Google Search grounding (the model decides when to search) through the
- * gateway's native Gemini endpoint; everything else uses plain chat completions.
- * `WEB_SEARCH=off` disables grounding; `GEMINI_BASE_URL` overrides the native endpoint base.
+ * Gemini models with `webSearch` get Google Search grounding (the model decides when to search)
+ * through the gateway's native Gemini endpoint (`<origin>/v1beta`); everything else uses plain
+ * chat completions.
  */
-export function clientFromEnv(env: Record<string, string | undefined>): {
+export function createClient({ baseUrl, apiKey, model, webSearch }: OpenAICompatibleConfig & { webSearch: boolean }): {
   client: LlmClient;
-  model: string | null;
   webSearch: boolean;
-  /** Host the model requests go to (shown in the context inspector); null when unconfigured. */
-  endpoint: string | null;
+  /** Host the model requests go to (shown in the context inspector). */
+  endpoint: string;
 } {
-  const required = ["OPENAI_BASE_URL", "OPENAI_MODEL"] as const;
-  const missing = required.filter((key) => !env[key]?.trim());
-  if (missing.length) return { client: new UnconfiguredClient(missing), model: null, webSearch: false, endpoint: null };
-  const model = env.OPENAI_MODEL!.trim();
-  const baseUrl = env.OPENAI_BASE_URL!.trim();
-  const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
-
-  const isGemini = /(^|\/)gemini/i.test(model);
-  if (isGemini && env.WEB_SEARCH?.trim().toLowerCase() !== "off") {
-    const nativeBase = env.GEMINI_BASE_URL?.trim() || `${new URL(baseUrl).origin}/v1beta`;
+  if (webSearch && /(^|\/)gemini/i.test(model)) {
+    const nativeBase = `${new URL(baseUrl).origin}/v1beta`;
     return {
       client: new GeminiGroundedClient({ baseUrl: nativeBase, apiKey, model }),
-      model,
       webSearch: true,
       endpoint: new URL(nativeBase).host,
     };
   }
-  return {
-    client: new OpenAICompatibleClient({ baseUrl, apiKey, model }),
-    model,
-    webSearch: false,
-    endpoint: new URL(baseUrl).host,
-  };
+  return { client: new OpenAICompatibleClient({ baseUrl, apiKey, model }), webSearch: false, endpoint: new URL(baseUrl).host };
 }

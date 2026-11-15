@@ -1,6 +1,6 @@
-// Bundles the plugin (and the shared src/core) into obsidian-plugin/main.js.
-// `--production` (release builds) leaves out the inline source map.
-// `--install /path/to/vault` also copies main.js, styles.css and the repo-root manifest.json into
+// Bundles the plugin into main.js, where Obsidian's scorecard looks for it after `npm run build`.
+// `--production` (`npm run build`, releases) leaves out the inline source map so the build is reproducible.
+// `--install /path/to/vault` also copies main.js, styles.css and manifest.json into
 // <vault>/.obsidian/plugins/yorum/ so Obsidian can load it.
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -29,7 +29,7 @@ if (installAt !== -1) {
   if (!vault) throw new Error("--install needs a vault folder");
   const target = path.join(path.resolve(vault), ".obsidian", "plugins", "yorum");
   await mkdir(target, { recursive: true });
-  const files = [path.join(here, "main.js"), path.join(here, "styles.css"), path.join(here, "..", "manifest.json")];
+  const files = [path.join(here, "main.js"), path.join(here, "styles.css"), path.join(here, "manifest.json")];
   for (const file of files) await copyFile(file, path.join(target, path.basename(file)));
   console.log(`Installed into ${target}`);
 }

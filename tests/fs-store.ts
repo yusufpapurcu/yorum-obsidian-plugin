@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { type NoteStore, VaultError, type VaultListing, checkVaultPath } from "../core/store.js";
+import { type NoteStore, VaultError, checkVaultPath } from "../src/core/store.js";
 
-const IGNORED_DIRS: Record<string, true> = { node_modules: true };
-
-/** Notes and sidecars in a folder on disk (the local server). */
+/** Notes and sidecars in a folder on disk: the vault stand-in for core tests. */
 export class FsNoteStore implements NoteStore {
   readonly root: string;
 
@@ -13,30 +11,25 @@ export class FsNoteStore implements NoteStore {
     this.root = path.resolve(root);
   }
 
-  async scan(): Promise<VaultListing> {
+  async listNotes(): Promise<string[]> {
     const notes: string[] = [];
-    const files: string[] = [];
     const walk = async (dir: string): Promise<void> => {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
         // Hidden folders (.obsidian, .git, .yorum) are app data, not vault content.
         if (entry.name.startsWith(".")) continue;
         const abs = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          if (!IGNORED_DIRS[entry.name]) await walk(abs);
-        } else if (entry.isFile() && !entry.name.endsWith(".ai.json")) { // old sidecar left without its note
-          const rel = path.relative(this.root, abs).split(path.sep).join("/");
-          (entry.name.toLowerCase().endsWith(".md") ? notes : files).push(rel);
+        if (entry.isDirectory()) await walk(abs);
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+          notes.push(path.relative(this.root, abs).split(path.sep).join("/"));
         }
       }
     };
     await walk(this.root);
-    const byName = (a: string, b: string) => a.localeCompare(b);
-    return { notes: notes.sort(byName), files: files.sort(byName) };
+    return notes.sort((a, b) => a.localeCompare(b));
   }
 
-  /** Absolute path of a vault file from a request, rejecting anything outside the vault or hidden. */
-  resolvePath(relPath: string): string {
+  /** Absolute path of a note, rejecting anything outside the vault or hidden. */
+  private notePath(relPath: string): string {
     return path.join(this.root, ...checkVaultPath(relPath).split("/"));
   }
 
@@ -50,7 +43,7 @@ export class FsNoteStore implements NoteStore {
 
   async readNote(notePath: string): Promise<string> {
     try {
-      return await readFile(this.resolvePath(notePath), "utf8");
+      return await readFile(this.notePath(notePath), "utf8");
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") throw new VaultError(`Note not found: ${notePath}`, 404);
       throw err;
@@ -58,7 +51,7 @@ export class FsNoteStore implements NoteStore {
   }
 
   async mtime(notePath: string): Promise<number> {
-    return (await stat(this.resolvePath(notePath))).mtimeMs;
+    return (await stat(this.notePath(notePath))).mtimeMs;
   }
 
   async readData(relPath: string): Promise<string | null> {

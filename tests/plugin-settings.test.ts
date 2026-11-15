@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSettings } from "../obsidian-plugin/src/settings.js";
+import { loadSettings } from "../src/settings.js";
 
 function fakeSecrets(initial: Record<string, string> = {}) {
   const store = new Map(Object.entries(initial));

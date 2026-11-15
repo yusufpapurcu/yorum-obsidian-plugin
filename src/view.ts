@@ -1,8 +1,8 @@
 import { ItemView, MarkdownView, Notice, type TFile, type WorkspaceLeaf, debounce, setIcon } from "obsidian";
-import { ACTIONS, AUTO_LENS, type ActionId } from "../../src/core/actions.js";
-import { toObsidianCallout } from "../../src/core/callout.js";
-import type { NoteView } from "../../src/core/commentary.js";
-import type { Anchor, Thread } from "../../src/core/types.js";
+import { ACTIONS, AUTO_LENS, type ActionId } from "./core/actions.js";
+import { toObsidianCallout } from "./core/callout.js";
+import type { NoteView } from "./core/commentary.js";
+import type { Anchor, Thread } from "./core/types.js";
 import type YorumPlugin from "./main.js";
 import { DiagramModal, LensModal } from "./modals.js";
 import { renderComment } from "./render.js";

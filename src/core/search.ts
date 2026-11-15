@@ -1,9 +1,8 @@
 import type { Sidecar } from "./types.js";
 
 /**
- * Search across notes and their AI comments. Pure (no I/O) so the server and the Obsidian plugin
- * share it. Matching ignores case and accents, and treats Turkish ı/İ as i — so "kitabi" finds
- * "kitabı" and "ozel" finds "özel".
+ * Search across notes and their AI comments. Pure (no I/O). Matching ignores case and accents,
+ * and treats Turkish ı/İ as i — so "kitabi" finds "kitabı" and "ozel" finds "özel".
  */
 
 export interface SearchDocument {

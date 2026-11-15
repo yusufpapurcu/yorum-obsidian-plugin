@@ -121,10 +121,10 @@
 /* Diagrams keep their natural size in the panel (render.ts); wide ones scroll sideways. */
 .yorum-msg .mermaid { overflow-x: auto; padding-bottom: 4px; }
 .yorum-msg .mermaid svg { height: auto; }
-.yorum-msg .mermaid svg.yorum-natural-size { max-width: none !important; }
+.yorum-msg .mermaid svg.yorum-natural-size { max-width: none; }
 .yorum-msg .mermaid, .yorum-msg .yorum-sketch-svg { cursor: zoom-in; }
 .yorum-diagram-modal { width: min(1100px, 92vw); }
 .yorum-diagram-modal .mermaid { text-align: center; }
-.yorum-diagram-modal .mermaid svg { max-width: 100% !important; height: auto; }
+.yorum-diagram-modal .mermaid svg { max-width: 100%; height: auto; }
 
 .yorum-sign-in-code { font-family: var(--font-monospace); font-size: 1.6em; letter-spacing: 0.1em; text-align: center; user-select: all; }

@@ -33,16 +33,19 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run plugin:release
+      - run: npm run build
 
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: obsidian-plugin/main.js
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            obsidian-plugin/main.js manifest.json obsidian-plugin/styles.css \
+            main.js manifest.json styles.css \
             --title "$GITHUB_REF_NAME" --generate-notes

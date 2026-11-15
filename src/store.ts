@@ -1,20 +1,16 @@
 import type { App } from "obsidian";
-import { type NoteStore, VaultError, type VaultListing } from "../../src/core/store.js";
+import { type NoteStore, VaultError } from "./core/store.js";
 
 /** Notes and sidecars through Obsidian's vault API (works on desktop and mobile). */
 export class ObsidianNoteStore implements NoteStore {
   constructor(private readonly app: App) {}
 
-  async scan(): Promise<VaultListing> {
-    const notes: string[] = [];
-    const files: string[] = [];
+  async listNotes(): Promise<string[]> {
     // The vault index already skips hidden folders such as .obsidian and .yorum.
-    for (const file of this.app.vault.getFiles()) {
-      if (file.path.endsWith(".ai.json")) continue; // old sidecar left without its note
-      (file.extension === "md" ? notes : files).push(file.path);
-    }
-    const byName = (a: string, b: string) => a.localeCompare(b);
-    return { notes: notes.sort(byName), files: files.sort(byName) };
+    return this.app.vault
+      .getMarkdownFiles()
+      .map((file) => file.path)
+      .sort((a, b) => a.localeCompare(b));
   }
 
   async readNote(notePath: string): Promise<string> {

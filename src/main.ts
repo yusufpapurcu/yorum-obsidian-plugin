@@ -16,17 +16,17 @@ import {
   Vault,
   type WorkspaceLeaf,
 } from "obsidian";
-import { ACTIONS, type ActionId } from "../../src/core/actions.js";
-import { type AskInput, CommentaryService, type NoteView, type ReplyInput } from "../../src/core/commentary.js";
-import { CHATGPT_ENDPOINT, ChatGptClient, ChatGptSession, type ChatGptTokens, parseTokens } from "../../src/core/chatgpt.js";
-import { UnconfiguredClient, clientFromEnv } from "../../src/core/llm.js";
-import { blockIndexAt } from "../../src/core/note.js";
-import type { Anchor } from "../../src/core/types.js";
+import { ACTIONS, type ActionId } from "./core/actions.js";
+import { type AskInput, CommentaryService, type NoteView, type ReplyInput } from "./core/commentary.js";
+import { CHATGPT_ENDPOINT, ChatGptClient, ChatGptSession, type ChatGptTokens, parseTokens } from "./core/chatgpt.js";
+import { UnconfiguredClient, createClient } from "./core/llm.js";
+import { blockIndexAt } from "./core/note.js";
+import type { Anchor } from "./core/types.js";
 import { anchorHighlights, findQuote, setAnchors } from "./highlights.js";
 import { ChatGptSignInModal, InspectorModal, LensModal, SearchModal } from "./modals.js";
 import { CHATGPT_SECRET_ID, type YorumSettings, DEFAULT_SETTINGS, loadSettings } from "./settings.js";
 import { fetchWithoutCors } from "./chatgpt.js";
-import { SIDECAR_DIR, sidecarPathFor } from "../../src/core/sidecar.js";
+import { SIDECAR_DIR, sidecarPathFor } from "./core/sidecar.js";
 import { ObsidianNoteStore } from "./store.js";
 import { type AskRequest, YorumView, VIEW_TYPE } from "./view.js";
 
@@ -177,7 +177,7 @@ export default class YorumPlugin extends Plugin {
     const unconfigured = (missing: (string | false)[]) => {
       const names = missing.filter((m): m is string => Boolean(m));
       if (!names.length) return false;
-      this.service = new CommentaryService(store, new UnconfiguredClient(names, "in Settings → Yorum"));
+      this.service = new CommentaryService(store, new UnconfiguredClient(names));
       this.llmInfo = { model: null, webSearch: false, endpoint: null };
       return true;
     };
@@ -188,8 +188,7 @@ export default class YorumPlugin extends Plugin {
       if (unconfigured([!tokens && "ChatGPT sign-in", !model && "Model"])) return;
       const session = new ChatGptSession(tokens!, (t) => this.storeChatGptTokens(t), fetchWithoutCors);
       const client = new ChatGptClient({ model, session, fetch: fetchWithoutCors });
-      // Obsidian can't draw Vega-Lite charts, so the model is only offered Mermaid and sketches.
-      this.service = new CommentaryService(store, client, { charts: false });
+      this.service = new CommentaryService(store, client);
       this.llmInfo = { model, webSearch: false, endpoint: CHATGPT_ENDPOINT };
       return;
     }
@@ -197,13 +196,14 @@ export default class YorumPlugin extends Plugin {
     // The API key is optional: local servers (Ollama, LM Studio…) usually need none.
     if (unconfigured([!this.settings.baseUrl && "Base URL", !this.settings.model && "Model"])) return;
     const apiKey = this.settings.apiKeySecret ? this.app.secretStorage.getSecret(this.settings.apiKeySecret) : null;
-    const { client, model, webSearch, endpoint } = clientFromEnv({
-      OPENAI_BASE_URL: this.settings.baseUrl,
-      OPENAI_API_KEY: apiKey ?? undefined,
-      OPENAI_MODEL: this.settings.model,
-      WEB_SEARCH: this.settings.webSearch ? undefined : "off",
+    const model = this.settings.model;
+    const { client, webSearch, endpoint } = createClient({
+      baseUrl: this.settings.baseUrl,
+      apiKey: apiKey?.trim() ?? "",
+      model,
+      webSearch: this.settings.webSearch,
     });
-    this.service = new CommentaryService(store, client, { charts: false });
+    this.service = new CommentaryService(store, client);
     this.llmInfo = { model, webSearch, endpoint };
   }
 
@@ -256,8 +256,8 @@ export default class YorumPlugin extends Plugin {
   }
 
   /**
-   * Anchor the selection exactly like the web UI does (block index + quote), then either open the
-   * composer (null), pick a lens ("lens"), or send a quick action straight away.
+   * Anchor the selection (block index + quote), then either open the composer (null), pick a
+   * lens ("lens"), or send a quick action straight away.
    */
   private async askAboutSelection(
     editor: Editor,

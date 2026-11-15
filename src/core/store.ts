@@ -1,10 +1,11 @@
 /**
- * Where notes and sidecars live. The core never touches a filesystem directly: the local server
- * uses a Node filesystem store (`src/node/fs-store.ts`), the Obsidian plugin uses the vault API.
- * Paths are vault-relative with `/` separators.
+ * Where notes and sidecars live. The core never touches a filesystem directly: the plugin uses
+ * the vault API (`src/store.ts`), tests use a folder on disk. Paths are vault-relative with `/`
+ * separators.
  */
 export interface NoteStore {
-  scan(): Promise<VaultListing>;
+  /** Vault-relative `.md` paths, sorted. */
+  listNotes(): Promise<string[]>;
   /** Markdown of a note; throws `VaultError` 404 when it doesn't exist. */
   readNote(notePath: string): Promise<string>;
   /** Last modification time in ms, so indexes re-read only what changed. */
@@ -17,13 +18,6 @@ export interface NoteStore {
   readData(path: string): Promise<string | null>;
   writeData(path: string, text: string): Promise<void>;
   deleteData(path: string): Promise<void>;
-}
-
-export interface VaultListing {
-  /** Vault-relative `.md` paths, sorted. */
-  notes: string[];
-  /** Every other file (attachments, `.base`, `.canvas`, PDFs…), for resolving `![[embeds]]`. */
-  files: string[];
 }
 
 export class VaultError extends Error {

@@ -1,9 +1,9 @@
 import { type App, Modal, Notice, Setting, SuggestModal } from "obsidian";
-import { AUTO_LENS, LENS_PRESETS } from "../../src/core/actions.js";
-import { CHATGPT_DEVICE_PAGE, type ChatGptTokens, requestDeviceCode, waitForDeviceCode } from "../../src/core/chatgpt.js";
-import type { RelatedNote } from "../../src/core/connections.js";
-import type { SearchHit, Snippet } from "../../src/core/search.js";
-import type { ChatMessage } from "../../src/core/types.js";
+import { AUTO_LENS, LENS_PRESETS } from "./core/actions.js";
+import { CHATGPT_DEVICE_PAGE, type ChatGptTokens, requestDeviceCode, waitForDeviceCode } from "./core/chatgpt.js";
+import type { RelatedNote } from "./core/connections.js";
+import type { SearchHit, Snippet } from "./core/search.js";
+import type { ChatMessage } from "./core/types.js";
 import { fetchWithoutCors, signInWithBrowser } from "./chatgpt.js";
 
 /** Pick a framework to explain the passage through: Surprise me, a preset, or anything typed. */

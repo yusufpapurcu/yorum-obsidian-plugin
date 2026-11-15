@@ -16,7 +16,7 @@ import { LlmError } from "./errors.js";
 import { type RelatedNote, VaultIndex } from "./connections.js";
 import { type SearchHit, searchVault } from "./search.js";
 import { parseNote } from "./note.js";
-import { type NoteStore, VaultError, type VaultListing, checkNotePath, titleOf } from "./store.js";
+import { type NoteStore, VaultError, checkNotePath, titleOf } from "./store.js";
 
 export interface NoteView {
   path: string;
@@ -52,7 +52,7 @@ const MAX_TEXT = 8000;
 
 /**
  * The commentary layer: reads notes (never writes them) and keeps intent + threads in sidecars.
- * Independent of HTTP so an Obsidian plugin can reuse it later.
+ * Independent of Obsidian: everything goes through a `NoteStore`.
  */
 export class CommentaryService<S extends NoteStore = NoteStore> {
   /** Serializes read-modify-write of each sidecar. */
@@ -60,31 +60,14 @@ export class CommentaryService<S extends NoteStore = NoteStore> {
   private readonly index: VaultIndex;
 
   private readonly now: () => Date;
-  private readonly charts: boolean;
 
-  /**
-   * `charts`: whether this app can draw Vega-Lite charts (the web app can, the Obsidian plugin
-   * can't); when false the model isn't offered that visual format.
-   */
   constructor(
     readonly store: S,
     private readonly llm: LlmClient,
-    options: { charts?: boolean; now?: () => Date } = {},
+    options: { now?: () => Date } = {},
   ) {
     this.index = new VaultIndex(store);
-    this.charts = options.charts ?? true;
     this.now = options.now ?? (() => new Date());
-  }
-
-  /** Notes and attachments, plus how many comment threads each note has. */
-  async listing(): Promise<VaultListing & { commentCounts: Record<string, number> }> {
-    const listing = await this.store.scan();
-    const sidecars = await Promise.all(listing.notes.map((p) => this.loadSidecar(p)));
-    const commentCounts: Record<string, number> = {};
-    listing.notes.forEach((p, i) => {
-      if (sidecars[i].threads.length) commentCounts[p] = sidecars[i].threads.length;
-    });
-    return { ...listing, commentCounts };
   }
 
   /** Search note titles, note text and AI comments across the vault. */
@@ -229,7 +212,7 @@ export class CommentaryService<S extends NoteStore = NoteStore> {
   private async context(notePath: string, markdown: string, sidecar: Sidecar, thread: Thread, action: ActionId | null) {
     const lastQuestion = [...thread.messages].reverse().find((m) => m.role === "user")?.content ?? "";
     const related = await this.index.related(notePath, `${thread.anchor?.quote ?? ""} ${lastQuestion}`);
-    const messages = buildMessages({ noteTitle: titleOf(notePath), noteText: markdown, sidecar, thread, related, charts: this.charts });
+    const messages = buildMessages({ noteTitle: titleOf(notePath), noteText: markdown, sidecar, thread, related });
     const spec: ActionSpec | null = action ? ACTIONS[action] : null;
     return { messages, related, fast: spec?.fast ?? false };
   }
@@ -281,7 +264,7 @@ export class CommentaryService<S extends NoteStore = NoteStore> {
 
   /** Move every sidecar from an earlier layout into the data folder; returns how many moved. */
   async migrateSidecars(): Promise<number> {
-    const { notes } = await this.store.scan();
+    const notes = await this.store.listNotes();
     let moved = 0;
     for (const notePath of notes) {
       if ((await this.store.readData(sidecarPathFor(notePath))) === null && (await this.moveLegacySidecar(notePath)) !== null) {

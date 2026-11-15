@@ -1,11 +1,11 @@
 import { type App, type Component, MarkdownRenderer, sanitizeHTMLToDom } from "obsidian";
-import { escapeCitations } from "../../src/core/callout.js";
-import type { Message } from "../../src/core/types.js";
+import { escapeCitations } from "./core/callout.js";
+import type { Message } from "./core/types.js";
 
 /**
  * AI comments rendered by Obsidian itself, so Mermaid, math, callouts and [[links]] look exactly
  * like the rest of the vault. Step-by-step sketches (```svg) get a step player; Vega-Lite charts
- * show their source with a hint (Obsidian has no built-in chart renderer).
+ * (from the retired web app) show their source with a hint, since Obsidian has no chart renderer.
  */
 export async function renderComment(
   app: App,
@@ -20,11 +20,13 @@ export async function renderComment(
   // unreadable. Keep each at its natural size and let wide ones scroll sideways. Obsidian's own
   // renderer puts the natural width in the `width` attribute (capped by max-width: 100%, which the
   // yorum-natural-size class lifts); classic Mermaid uses width="100%" and records the natural
-  // width as max-width. Diagrams render later, hence the observer.
+  // width as an inline max-width, which moves to `width` so the class can lift the cap.
+  // Diagrams render later, hence the observer.
   const naturalSize = () => {
     for (const svg of Array.from(el.querySelectorAll<SVGSVGElement>(".mermaid svg:not(.yorum-natural-size)"))) {
       const natural = svg.getAttribute("width")?.endsWith("%") ? svg.style.maxWidth : "";
       if (natural.endsWith("px")) svg.setCssProps({ width: natural });
+      svg.style.removeProperty("max-width");
       svg.addClass("yorum-natural-size");
     }
   };
@@ -47,7 +49,7 @@ export async function renderComment(
   }
   for (const code of Array.from(el.querySelectorAll<HTMLElement>("pre > code.language-vega-lite"))) {
     code.parentElement!.before(
-      createDiv({ cls: "yorum-viz-hint", text: "Chart (Vega-Lite) — open this note in the yorum web app to see it drawn." }),
+      createDiv({ cls: "yorum-viz-hint", text: "Chart (Vega-Lite): Obsidian can't draw it, so its source is shown." }),
     );
   }
   if (message.sources?.length) {

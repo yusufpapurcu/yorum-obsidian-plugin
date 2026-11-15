@@ -2,24 +2,20 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rename, rm, writeFile, mkdir, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommentaryService } from "../src/core/commentary.js";
 import { LlmError } from "../src/core/errors.js";
 import { GeminiGroundedClient, groundedReply } from "../src/core/gemini.js";
-import { OpenAICompatibleClient, UnconfiguredClient, clientFromEnv } from "../src/core/llm.js";
+import { OpenAICompatibleClient, createClient } from "../src/core/llm.js";
 import { buildMessages } from "../src/core/prompt.js";
 import { emptySidecar, parseSidecar, serializeSidecar, sidecarPathFor } from "../src/core/sidecar.js";
 import type { ChatMessage, CompleteOptions, LlmClient, LlmReply, Sidecar, Source, Thread } from "../src/core/types.js";
 import { ACTIONS, AUTO_LENS, detectLens } from "../src/core/actions.js";
 import { VaultIndex } from "../src/core/connections.js";
 import { blockIndexAt, parseNote } from "../src/core/note.js";
-import { FsNoteStore } from "../src/node/fs-store.js";
-import { findObsidianVault } from "../src/node/obsidian.js";
-import { DEBOUNCE_MS, type VaultChange, watchVault } from "../src/node/watch.js";
-import { createApp } from "../src/server.js";
 import { toObsidianCallout } from "../src/core/callout.js";
-import { type SearchDocument, type SearchHit, type Snippet, plainText, searchVault } from "../src/core/search.js";
+import { type SearchDocument, type Snippet, plainText, searchVault } from "../src/core/search.js";
+import { FsNoteStore } from "./fs-store.js";
 
 const NOTE = "Learning recursion.md";
 const NOTE_TEXT = `# Learning recursion
@@ -251,44 +247,6 @@ describe("buildMessages", () => {
   });
 });
 
-describe("HTTP API", () => {
-  it("serves notes, creates and continues threads, and maps errors to status codes", async () => {
-    const before = await sha(notePath);
-    const app = createApp(new CommentaryService(new FsNoteStore(dir), new MockLlm()), { model: "mock", webSearch: false });
-    const q = `?path=${encodeURIComponent(NOTE)}`;
-
-    expect((await request(app).get("/api/notes")).body).toEqual({ notes: [NOTE], files: [], commentCounts: {} });
-    const note = await request(app).get(`/api/note${q}`);
-    expect(note.status).toBe(200);
-    expect(note.body.blocks.map((b: { type: string }) => b.type)).toEqual(["heading", "paragraph", "heading", "paragraph"]);
-
-    expect((await request(app).put(`/api/note/intent${q}`).send({ intent: "Be brutal" })).body.intent).toBe("Be brutal");
-    const created = await request(app)
-      .post(`/api/note/threads${q}`)
-      .send({ anchor: { blockIndex: 3, quote: "base case" }, question: "Example?" });
-    expect(created.status).toBe(201);
-    const replied = await request(app)
-      .post(`/api/note/threads/${created.body.id}/messages${q}`)
-      .send({ content: "More" });
-    expect(replied.body.messages).toHaveLength(4);
-    expect((await request(app).get("/api/notes")).body.commentCounts).toEqual({ [NOTE]: 1 });
-    const found = await request(app).get("/api/search?q=example");
-    expect(found.body.results.map((r: SearchHit) => [r.path, r.comments.length])).toEqual([[NOTE, 1]]);
-
-    expect((await request(app).post(`/api/note/threads${q}`).send({ question: "" })).status).toBe(400);
-    expect((await request(app).get("/api/note?path=..%2Fx.md")).status).toBe(400);
-    expect(await sha(notePath)).toBe(before);
-
-    const unconfigured = createApp(new CommentaryService(new FsNoteStore(dir), new UnconfiguredClient(["OPENAI_API_KEY"])), {
-      model: null,
-      webSearch: false,
-    });
-    const failed = await request(unconfigured).post(`/api/note/threads${q}`).send({ question: "hi" });
-    expect(failed.status).toBe(502);
-    expect(failed.body.error).toContain("OPENAI_API_KEY");
-  });
-});
-
 describe("OpenAICompatibleClient", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -434,13 +392,14 @@ describe("web search grounding", () => {
     });
   });
 
-  it("uses grounding for Gemini models unless WEB_SEARCH=off", () => {
-    const base = { OPENAI_BASE_URL: "https://gw.example/v1/chat/completions", OPENAI_API_KEY: "k" };
-    expect(clientFromEnv({ ...base, OPENAI_MODEL: "google/gemini-x" })).toMatchObject({ webSearch: true });
-    expect(clientFromEnv({ ...base, OPENAI_MODEL: "google/gemini-x", WEB_SEARCH: "off" })).toMatchObject({
-      webSearch: false,
+  it("uses grounding for Gemini models only when web search is on", () => {
+    const base = { baseUrl: "https://gw.example/v1/chat/completions", apiKey: "k" };
+    expect(createClient({ ...base, model: "google/gemini-x", webSearch: true })).toMatchObject({
+      webSearch: true,
+      endpoint: "gw.example",
     });
-    expect(clientFromEnv({ ...base, OPENAI_MODEL: "openai/gpt-x" })).toMatchObject({ webSearch: false });
+    expect(createClient({ ...base, model: "google/gemini-x", webSearch: false })).toMatchObject({ webSearch: false });
+    expect(createClient({ ...base, model: "openai/gpt-x", webSearch: true })).toMatchObject({ webSearch: false });
   });
 
   it("stores sources on the assistant message", async () => {
@@ -468,63 +427,6 @@ describe("Obsidian vault support", () => {
     expect(parseNote("No frontmatter\n").properties).toBeNull();
   });
 
-  it("lists attachments for embeds and serves only images from inside the vault", async () => {
-    await mkdir(path.join(dir, "attachments"));
-    await writeFile(path.join(dir, "attachments", "pic.png"), "png-bytes");
-    await writeFile(path.join(dir, "Books.base"), "views: []");
-    await mkdir(path.join(dir, ".obsidian"));
-    await writeFile(path.join(dir, ".obsidian", "app.json"), "{}");
-    await new FsNoteStore(dir).writeData(sidecarPathFor(NOTE), JSON.stringify(emptySidecar()));
-    const app = createApp(new CommentaryService(new FsNoteStore(dir), new MockLlm()), { model: "mock", webSearch: false });
-
-    expect((await request(app).get("/api/notes")).body).toEqual({
-      notes: [NOTE],
-      files: ["attachments/pic.png", "Books.base"],
-      commentCounts: {},
-    });
-    const image = await request(app).get("/api/file?path=attachments%2Fpic.png");
-    expect(image.status).toBe(200);
-    expect(image.headers["content-type"]).toContain("image/png");
-    expect((await request(app).get("/api/file?path=Books.base")).status).toBe(400);
-    expect((await request(app).get("/api/file?path=..%2Fsecret.png")).status).toBe(400);
-    expect((await request(app).get("/api/file?path=missing.png")).status).toBe(404);
-  });
-});
-
-describe("Open in Obsidian", () => {
-  it("finds the registered vault that contains the folder, innermost first", async () => {
-    const config = path.join(dir, "obsidian.json");
-    const outer = path.join(dir, "outer");
-    const inner = path.join(outer, "Inner Vault");
-    await writeFile(
-      config,
-      JSON.stringify({ vaults: { a: { path: outer, ts: 1 }, b: { path: inner, ts: 2 }, c: { path: "/elsewhere" } } }),
-    );
-
-    expect(await findObsidianVault(path.join(inner, "notes"), config)).toEqual({
-      name: "Inner Vault",
-      path: inner,
-      subfolder: "notes",
-    });
-    expect(await findObsidianVault(outer, config)).toEqual({ name: "outer", path: outer, subfolder: "" });
-    expect(await findObsidianVault(path.join(dir, "not-a-vault"), config)).toBeNull();
-    expect(await findObsidianVault(outer, path.join(dir, "missing.json"))).toBeNull();
-  });
-
-  it("reports the vault in /api/status so the UI can deep link", async () => {
-    const config = path.join(dir, "obsidian.json");
-    await writeFile(config, JSON.stringify({ vaults: { v: { path: dir } } }));
-    const app = createApp(new CommentaryService(new FsNoteStore(dir), new MockLlm()), {
-      model: "mock",
-      webSearch: false,
-      obsidianConfigPath: config,
-    });
-    expect((await request(app).get("/api/status")).body.obsidian).toEqual({
-      name: path.basename(dir),
-      path: dir,
-      subfolder: "",
-    });
-  });
 });
 
 describe("vault connections", () => {
@@ -654,8 +556,8 @@ function sseResponse(chunks: string[]): Response {
   );
 }
 
-describe("streaming over HTTP", () => {
-  it("announces vault context, streams text deltas, then the saved thread; errors arrive as an event", async () => {
+describe("streaming", () => {
+  it("announces vault context, streams text deltas, then saves the thread", async () => {
     await writeFile(path.join(dir, "Systems.md"), "Links back to [[Learning recursion]] and its base case.");
     const streaming: LlmClient = {
       async complete(_messages, opts = {}) {
@@ -664,37 +566,18 @@ describe("streaming over HTTP", () => {
         return { content: "Hello.", sources: [] };
       },
     };
-    const app = createApp(new CommentaryService(new FsNoteStore(dir), streaming), { model: "mock", webSearch: false });
-    const q = `?path=${encodeURIComponent(NOTE)}`;
-    const parse = (text: string) =>
-      text
-        .trim()
-        .split("\n\n")
-        .map((block) => {
-          const [eventLine, dataLine] = block.split("\n");
-          return { event: eventLine.slice(7), data: JSON.parse(dataLine.slice(6)) };
-        });
-
-    const res = await request(app)
-      .post(`/api/note/threads${q}`)
-      .set("accept", "text/event-stream")
-      .send({ anchor: null, question: "Hi?" });
-    expect(res.headers["content-type"]).toContain("text/event-stream");
-    const events = parse(res.text);
-    expect(events.slice(0, 3)).toEqual([
-      { event: "context", data: { notes: [{ path: "Systems.md", relation: "linked from" }] } },
-      { event: "delta", data: { text: "Hel" } },
-      { event: "delta", data: { text: "lo." } },
-    ]);
-    expect(events[3].event).toBe("done");
-    expect(events[3].data.messages.map((m: { content: string }) => m.content)).toEqual(["Hi?", "Hello."]);
-    expect((await savedSidecar()).threads).toHaveLength(1);
-
-    const missing = await request(app)
-      .post(`/api/note/threads/nope/messages${q}`)
-      .set("accept", "text/event-stream")
-      .send({ content: "x" });
-    expect(parse(missing.text)).toEqual([{ event: "error", data: { status: 404, error: "Thread not found: nope" } }]);
+    const events: unknown[] = [];
+    const thread = await new CommentaryService(new FsNoteStore(dir), streaming).ask(
+      NOTE,
+      { anchor: null, question: "Hi?" },
+      {
+        onContext: (related) => events.push({ context: related.map((n) => [n.path, n.relation]) }),
+        onDelta: (text) => events.push({ delta: text }),
+      },
+    );
+    expect(events).toEqual([{ context: [["Systems.md", "linked from"]] }, { delta: "Hel" }, { delta: "lo." }]);
+    expect(thread.messages.map((m) => m.content)).toEqual(["Hi?", "Hello."]);
+    expect((await savedSidecar()).threads).toEqual([thread]);
   });
 
   it("uses the fast thinking level only for plain explanations", async () => {
@@ -727,51 +610,6 @@ describe("streaming over HTTP", () => {
   });
 });
 
-describe("live sync", () => {
-  it("reports note edits, sidecar writes and new files, ignoring hidden folders", async () => {
-    const changes: VaultChange[] = [];
-    let onChange = () => {};
-    const seen = (kind: VaultChange["kind"], p: string) => changes.some((c) => c.kind === kind && c.path === p);
-    const until = (done: () => boolean) => {
-      const { promise, resolve } = Promise.withResolvers<void>();
-      onChange = () => done() && resolve();
-      onChange();
-      return promise;
-    };
-    await mkdir(path.join(dir, ".yorum")); // an existing vault already has its data folder
-    const watcher = watchVault(dir, (c) => {
-      changes.push(c);
-      onChange();
-    });
-    try {
-      // macOS file events start a moment after the watcher is created: rewrite a probe note until
-      // the watcher reports it (a real-clock wait is unavoidable here — this tests the platform's
-      // file events), then start from a clean slate. Retries must be slower than the watcher's
-      // per-path debounce, or each rewrite would postpone the report forever.
-      const ready = until(() => seen("note", "probe.md"));
-      for (let i = 0; !seen("note", "probe.md") && i < 10; i++) {
-        await writeFile(path.join(dir, "probe.md"), String(i));
-        await Promise.race([ready, new Promise((r) => setTimeout(r, DEBOUNCE_MS * 3))]);
-      }
-      await ready;
-      changes.length = 0;
-
-      const allSeen = until(() => seen("note", NOTE) && seen("sidecar", NOTE) && seen("note", "New idea.md"));
-      // Hidden-folder writes go first: if they leaked, they would be reported before the others.
-      await mkdir(path.join(dir, ".obsidian"));
-      await writeFile(path.join(dir, ".obsidian", "workspace.json"), "{}");
-      await writeFile(notePath, `${NOTE_TEXT}\nEdited in Obsidian.\n`);
-      await writeFile(path.join(dir, ".yorum", "Learning recursion.json"), "{}");
-      await writeFile(path.join(dir, "New idea.md"), "fresh");
-      await allSeen;
-    } finally {
-      watcher.close();
-    }
-    expect(changes.find((c) => c.path === "New idea.md")).toEqual({ kind: "note", path: "New idea.md", structural: true });
-    expect(changes.some((c) => c.path.startsWith(".obsidian"))).toBe(false);
-  });
-});
-
 describe("context inspector", () => {
   it("previews exactly the request the model then receives, without saving anything", async () => {
     await writeFile(path.join(dir, "Systems.md"), "Links back to [[Learning recursion]] and its base case.");
@@ -790,22 +628,6 @@ describe("context inspector", () => {
     expect(llm.calls[1]).toEqual(followUp.messages);
   });
 
-  it("reports destination, vault notes and size over HTTP", async () => {
-    await writeFile(path.join(dir, "Systems.md"), "Links back to [[Learning recursion]] and its base case.");
-    const app = createApp(new CommentaryService(new FsNoteStore(dir), new MockLlm()), {
-      model: "google/gemini-x",
-      webSearch: true,
-      endpoint: "api.example.ai",
-    });
-    const res = await request(app)
-      .post(`/api/note/context-preview?path=${encodeURIComponent(NOTE)}`)
-      .send({ anchor: null, action: "explain" });
-    expect(res.status).toBe(200);
-    expect(res.body.destination).toEqual({ endpoint: "api.example.ai", model: "google/gemini-x", webSearch: true, fast: true });
-    expect(res.body.related).toEqual([{ path: "Systems.md", relation: "linked from", characters: 55 }]);
-    expect(res.body.messages.at(-1)).toEqual({ role: "user", content: "Explain this." });
-    expect(res.body.approxTokens).toBe(Math.round(res.body.characters / 4));
-  });
 });
 
 describe("copy as Obsidian callout", () => {
@@ -951,7 +773,7 @@ describe("search snippets", () => {
 });
 
 describe("anchors from an editor selection", () => {
-  it("maps a character offset to the same block index the web UI anchors to", () => {
+  it("maps a character offset to the block index anchors use", () => {
     const md = "---\ntags: [a]\n---\n# Title\n\nFirst paragraph here.\n\n- item one\n- item two\n\nLast.";
     const at = (needle: string) => blockIndexAt(md, md.indexOf(needle));
     expect(parseNote(md).blocks.map((b) => b.type)).toEqual(["heading", "paragraph", "list", "paragraph"]);
@@ -1001,16 +823,5 @@ describe("AI data follows its note", () => {
 
     await service.deleteNoteData("Renamed.md");
     expect(await saved("Renamed.md")).toBeNull();
-  });
-});
-
-describe("visual formats per app", () => {
-  it("offers Vega-Lite charts only where they can be drawn (web app yes, Obsidian plugin no)", async () => {
-    const llm = new MockLlm();
-    await new CommentaryService(new FsNoteStore(dir), llm).ask(NOTE, { anchor: null, action: "visualize" });
-    await new CommentaryService(new FsNoteStore(dir), llm, { charts: false }).ask(NOTE, { anchor: null, action: "visualize" });
-    expect(llm.calls[0][0].content).toContain("```vega-lite");
-    expect(llm.calls[1][0].content).not.toContain("vega-lite");
-    expect(llm.calls[1][0].content).toContain("```mermaid");
   });
 });

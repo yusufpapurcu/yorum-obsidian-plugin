@@ -3,7 +3,6 @@ import type { Source } from "./types.js";
 /**
  * Bring an AI comment into your own note, on your terms: Markdown that Obsidian renders natively —
  * a foldable callout with the passage, the question, the answer, its sources, and its visual.
- * Shared by the web UI (served as /core/callout.js) and the Obsidian plugin.
  */
 
 const SVG_FENCE = /```svg\s*\n([\s\S]*?)```/g;

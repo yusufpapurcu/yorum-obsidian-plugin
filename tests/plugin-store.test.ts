@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 import { describe, expect, it } from "vitest";
-import { ObsidianNoteStore } from "../obsidian-plugin/src/store.js";
+import { ObsidianNoteStore } from "../src/store.js";
 import { CommentaryService } from "../src/core/commentary.js";
 import type { ChatMessage, LlmClient, LlmReply } from "../src/core/types.js";
 
@@ -16,7 +16,7 @@ function fakeApp(initial: Record<string, string>): { app: App; files: Map<string
   const hidden = (path: string) => path.split("/").some((p) => p.startsWith("."));
   const vault = {
     // Like Obsidian, the vault index doesn't include hidden folders.
-    getFiles: () => [...files.keys()].filter((p) => !hidden(p)).map(tfile),
+    getMarkdownFiles: () => [...files.keys()].filter((p) => !hidden(p) && p.endsWith(".md")).map(tfile),
     getFileByPath: (path: string) => (files.has(path) && !hidden(path) ? tfile(path) : null),
     cachedRead: async (file: { path: string }) => files.get(file.path)!,
     adapter: {
@@ -44,7 +44,7 @@ class EchoLlm implements LlmClient {
 }
 
 describe("Obsidian plugin store", () => {
-  it("runs the same commentary service on Obsidian's vault API: sidecars, links, listing, search", async () => {
+  it("runs the same commentary service on Obsidian's vault API: sidecars, links, note list, search", async () => {
     const { app, files } = fakeApp({
       "Study/Recursion.md": "# Recursion\n\nEvery recursive function needs a base case.\n",
       "Study/Systems.md": "Links to [[Recursion]] and talks about feedback.",
@@ -64,12 +64,8 @@ describe("Obsidian plugin store", () => {
     // Vault connections work through the vault API (backlink from Systems).
     expect(thread.messages[1].related).toEqual(["Study/Systems.md"]);
     expect(llm.calls[0][0].content).toContain('<vault-note title="Systems" relation="linked from">');
-    // Listing excludes sidecars; search reaches the AI comment.
-    expect(await service.listing()).toEqual({
-      notes: ["Study/Recursion.md", "Study/Systems.md"],
-      files: ["attachments/pic.png"],
-      commentCounts: { "Study/Recursion.md": 1 },
-    });
+    // The note list leaves out sidecars and attachments; search reaches the AI comment.
+    expect(await service.store.listNotes()).toEqual(["Study/Recursion.md", "Study/Systems.md"]);
     const [hit] = await service.search("margin comment");
     expect(hit).toMatchObject({ path: "Study/Recursion.md", comments: [{ threadId: thread.id, role: "assistant" }] });
     await expect(service.getNote("Study/Missing.md")).rejects.toMatchObject({ status: 404 });
@@ -86,6 +82,6 @@ describe("Obsidian plugin store: sidecar migration", () => {
     expect(await service.migrateSidecars()).toBe(1);
     expect(files.has("Study/Recursion.ai.json")).toBe(false);
     expect(JSON.parse(files.get(".yorum/Study/Recursion.json")!).intent).toBe("Quiz me");
-    expect((await service.listing()).notes).toEqual(["Study/Recursion.md"]);
+    expect(await service.store.listNotes()).toEqual(["Study/Recursion.md"]);
   });
 });

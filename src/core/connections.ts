@@ -60,7 +60,7 @@ export class VaultIndex {
 
   /** All notes, re-reading only files whose mtime changed. */
   private async notes(): Promise<IndexedNote[]> {
-    const { notes } = await this.store.scan();
+    const notes = await this.store.listNotes();
     const fresh = await Promise.all(
       notes.map(async (notePath) => {
         const mtimeMs = await this.store.mtime(notePath);

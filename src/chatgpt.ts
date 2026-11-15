@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import { Platform, requestUrl } from "obsidian";
-import { type ChatGptTokens, type FetchLike, startBrowserSignIn } from "../../src/core/chatgpt.js";
+import { type ChatGptTokens, type FetchLike, startBrowserSignIn } from "./core/chatgpt.js";
 
 /**
  * chatgpt.com answers without CORS headers, so Obsidian's `fetch` can't reach it. Desktop uses

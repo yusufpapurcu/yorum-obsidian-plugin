@@ -11,13 +11,6 @@ export function sidecarPathFor(notePath: string): string {
   return `${SIDECAR_DIR}/${notePath.replace(/\.md$/i, "")}.json`;
 }
 
-/** The note a sidecar belongs to, or null when the path is not a sidecar. */
-export function notePathForSidecar(sidecarPath: string): string | null {
-  const prefix = `${SIDECAR_DIR}/`;
-  if (!sidecarPath.startsWith(prefix) || !sidecarPath.endsWith(".json")) return null;
-  return `${sidecarPath.slice(prefix.length, -".json".length)}.md`;
-}
-
 /**
  * Where earlier versions kept a note's sidecar, newest first: the `.margin/` folder (before the
  * project was renamed to yorum), then next to the note (`Study/Recursion.ai.json`).

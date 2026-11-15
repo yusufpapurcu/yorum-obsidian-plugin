@@ -1,6 +1,6 @@
 {
   "name": "yorum",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Talk with your Markdown notes: an AI commentary layer stored in sidecar files, never in your notes.",
   "license": "MIT",
@@ -9,38 +9,24 @@
     "node": ">=20.12"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
+    "build": "npm run typecheck && node esbuild.config.mjs --production",
+    "build:dev": "npm run typecheck && node esbuild.config.mjs",
+    "install-plugin": "npm run typecheck && node esbuild.config.mjs --install",
+    "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "lint": "eslint .",
-    "plugin:check": "tsc -p obsidian-plugin/tsconfig.json",
-    "plugin:build": "npm run plugin:check && node obsidian-plugin/esbuild.config.mjs",
-    "plugin:release": "npm run plugin:check && node obsidian-plugin/esbuild.config.mjs --production",
-    "plugin:install": "npm run plugin:check && node obsidian-plugin/esbuild.config.mjs --install"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "dompurify": "^3.4.17",
-    "express": "^5.1.0",
-    "katex": "^0.19.1",
-    "marked": "^15.0.0",
-    "mermaid": "^12.3.0",
-    "vega": "^6.4.0",
-    "vega-embed": "^7.3.0",
-    "vega-lite": "^6.5.0"
+    "marked": "^15.0.0"
   },
   "devDependencies": {
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.13",
-    "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
-    "@types/supertest": "^6.0.2",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.5.1",
     "obsidian": "^1.14.4",
-    "supertest": "^7.0.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.72.2",
     "vitest": "^3.0.0"
