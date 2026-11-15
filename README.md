@@ -23,7 +23,7 @@ There is one exception, and it's a button: **Insert below passage** copies an an
 
 ### Network use and accounts
 
-- **The only remote services are the AI endpoint you configure** (with a ChatGPT account: `chatgpt.com`, plus `auth.openai.com` to sign in and renew the sign-in). yorum sends a request there when you ask something (a question, a quick action, a lens, a suggested intent), and at no other time. The request contains the current note, excerpts of up to four related notes, the passage and the thread. *What the AI sees* shows exactly what goes out.
+- **The only remote services are the AI endpoint you configure** (with a ChatGPT account: `chatgpt.com`, plus `auth.openai.com` to sign in and renew the sign-in). yorum sends a request there when you ask something (a question, a quick action, a lens, a suggested intent), when you click **Browse models** in settings (it fetches the endpoint's model list), and at no other time. The request contains the current note, excerpts of up to four related notes, the passage and the thread. *What the AI sees* shows exactly what goes out.
 - **Web search**: with a Gemini model and *Web search* on, the request asks the model to use Google Search. That search happens on the provider's side; yorum itself contacts nothing else.
 - **Account and payment**: you need either an API key with an AI provider of your choice (most charge for API use) or a ChatGPT plan that includes Codex. A self-hosted OpenAI-compatible server needs no account and no key.
 - **No telemetry**, no analytics, no update checks, no yorum server.
@@ -91,8 +91,8 @@ Yorum is in Obsidian's [community plugin directory](https://community.obsidian.m
 
 1. Go to Settings → Community plugins → Browse, search for **Yorum**, install and enable it.
 2. In its settings, pick a provider:
-   - **ChatGPT account**: click **Sign in** (your browser opens) or **Use a code** (enter a one-time code on OpenAI's page), then set a model your plan offers in Codex, e.g. `gpt-5.6-terra`.
-   - **OpenAI-compatible API**: set the base URL and model, and pick or create the API key secret (optional; leave it empty for a local server).
+   - **ChatGPT account**: click **Sign in** (your browser opens) or **Use a code** (enter a one-time code on OpenAI's page), then type a model your plan offers in Codex (e.g. `gpt-5.6-terra`) or click **Browse models** to search your plan's list.
+   - **OpenAI-compatible API**: set the base URL, pick or create the API key secret (optional; leave it empty for a local server), then type the model ID or click **Browse models** next to it to search the endpoint's model list.
 
 ![Yorum settings: provider set to ChatGPT account, signed in, model, delete-with-note](docs/images/settings.png)
 

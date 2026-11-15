@@ -1,7 +1,7 @@
 {
   "id": "yorum",
   "name": "Yorum",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.11.4",
   "description": "Ask AI about passages in your notes and get answers in a side panel, saved in separate files so your notes are never changed. Works with your ChatGPT account, an OpenAI-compatible API key, or a local model.",
   "author": "Yusuf Papurcu",

@@ -10,6 +10,12 @@ import type { ChatMessage, CompleteOptions, LlmClient, LlmReply } from "./types.
 const ISSUER = "https://auth.openai.com";
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const RESPONSES_URL = "https://chatgpt.com/backend-api/codex/responses";
+/**
+ * The plan's model catalog, as the Codex CLI reads it. The backend may hide models newer than
+ * `client_version`; this is the Codex CLI release current when it was written (models it doesn't
+ * list can still be typed).
+ */
+const MODELS_URL = "https://chatgpt.com/backend-api/codex/models?client_version=0.169.0";
 /** Where the user enters a device code. */
 export const CHATGPT_DEVICE_PAGE = `${ISSUER}/codex/device`;
 /** Shown as the request destination (context inspector). */
@@ -23,7 +29,7 @@ const DEVICE_CODE_TIMEOUT_MS = 15 * 60_000;
  */
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body?: string },
 ) => Promise<Response>;
 
 export interface ChatGptTokens {
@@ -318,4 +324,24 @@ export class ChatGptClient implements LlmClient {
     if (!content.trim()) throw new LlmError("ChatGPT returned an empty response");
     return { content: content.trim(), sources: [] };
   }
+}
+
+/** Model slugs the signed-in plan offers in Codex (hidden ones left out), sorted, for the settings picker. */
+export async function listChatGptModels(session: ChatGptSession, fetchFn: FetchLike): Promise<string[]> {
+  const { access, accountId } = await session.current();
+  const res = await fetchFn(MODELS_URL, {
+    method: "GET",
+    headers: { accept: "application/json", authorization: `Bearer ${access}`, "chatgpt-account-id": accountId },
+  });
+  if (!res.ok) {
+    const hint = res.status === 401 ? " — sign in to ChatGPT again" : "";
+    throw new LlmError(`Listing ChatGPT models failed (${res.status}): ${await errorText(res)}${hint}`);
+  }
+  const body = (await res.json()) as { models?: { slug?: unknown; visibility?: unknown }[] };
+  if (!Array.isArray(body.models)) throw new LlmError("ChatGPT's model list has an unexpected format");
+  const slugs = body.models
+    .filter((m) => m.visibility === undefined || m.visibility === "list")
+    .map((m) => m.slug)
+    .filter((slug): slug is string => typeof slug === "string" && slug !== "");
+  return [...new Set(slugs)].sort((a, b) => a.localeCompare(b));
 }

@@ -11,6 +11,7 @@ import {
   SecretComponent,
   Setting,
   type TAbstractFile,
+  type TextComponent,
   TFile,
   TFolder,
   Vault,
@@ -18,12 +19,19 @@ import {
 } from "obsidian";
 import { ACTIONS, type ActionId } from "./core/actions.js";
 import { type AskInput, CommentaryService, type NoteView, type ReplyInput } from "./core/commentary.js";
-import { CHATGPT_ENDPOINT, ChatGptClient, ChatGptSession, type ChatGptTokens, parseTokens } from "./core/chatgpt.js";
-import { UnconfiguredClient, createClient } from "./core/llm.js";
+import {
+  CHATGPT_ENDPOINT,
+  ChatGptClient,
+  ChatGptSession,
+  type ChatGptTokens,
+  listChatGptModels,
+  parseTokens,
+} from "./core/chatgpt.js";
+import { UnconfiguredClient, createClient, listModels } from "./core/llm.js";
 import { blockIndexAt } from "./core/note.js";
 import type { Anchor } from "./core/types.js";
 import { anchorHighlights, findQuote, setAnchors } from "./highlights.js";
-import { ChatGptSignInModal, InspectorModal, LensModal, SearchModal } from "./modals.js";
+import { ChatGptSignInModal, InspectorModal, LensModal, ModelPickerModal, SearchModal } from "./modals.js";
 import { CHATGPT_SECRET_ID, type YorumSettings, DEFAULT_SETTINGS, loadSettings } from "./settings.js";
 import { fetchWithoutCors } from "./chatgpt.js";
 import { SIDECAR_DIR, sidecarPathFor } from "./core/sidecar.js";
@@ -409,25 +417,27 @@ class YorumSettingTab extends PluginSettingTab {
             this.display();
           }),
       );
-    const text = (name: string, desc: string, key: "baseUrl" | "model" | "chatgptModel", placeholder: string) =>
+    if (this.plugin.settings.provider === "chatgpt") {
+      this.chatGptAccount(containerEl);
+      this.modelSetting(containerEl, "chatgptModel", "A model your plan offers in Codex: type it or browse your plan's models.", "gpt-5.6-terra", () => {
+        const tokens = this.plugin.chatGptTokens();
+        if (!tokens) throw new Error("sign in to ChatGPT first");
+        const session = new ChatGptSession(tokens, (t) => this.plugin.storeChatGptTokens(t), fetchWithoutCors);
+        return listChatGptModels(session, fetchWithoutCors);
+      });
+    } else {
       new Setting(containerEl)
-        .setName(name)
-        .setDesc(desc)
+        .setName("Base URL")
+        .setDesc("e.g. https://api.openai.com/v1, http://localhost:11434/v1, or the full …/chat/completions URL")
         .addText((t) =>
           t
-            .setPlaceholder(placeholder)
-            .setValue(this.plugin.settings[key])
+            .setPlaceholder("https://api.openai.com/v1")
+            .setValue(this.plugin.settings.baseUrl)
             .onChange(async (value) => {
-              this.plugin.settings[key] = value.trim();
+              this.plugin.settings.baseUrl = value.trim();
               await this.plugin.saveSettings();
             }),
         );
-
-    if (this.plugin.settings.provider === "chatgpt") {
-      this.chatGptAccount(containerEl);
-      text("Model", "A model your plan offers in Codex, e.g. gpt-5.6-terra.", "chatgptModel", "gpt-5.6-terra");
-    } else {
-      text("Base URL", "e.g. https://api.openai.com/v1, http://localhost:11434/v1, or the full …/chat/completions URL", "baseUrl", "https://api.openai.com/v1");
       new Setting(containerEl)
         .setName("API key")
         .setDesc(
@@ -439,7 +449,18 @@ class YorumSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
         );
-      text("Model", "Gemini models (e.g. google/gemini-…) get web search with sources.", "model", "gpt-4o-mini");
+      this.modelSetting(
+        containerEl,
+        "model",
+        "Type a model ID or browse the endpoint's models. Gemini models (e.g. google/gemini-…) get web search with sources.",
+        "gpt-4o-mini",
+        () => {
+          const { baseUrl, apiKeySecret } = this.plugin.settings;
+          if (!baseUrl) throw new Error("set the base URL first");
+          const apiKey = apiKeySecret ? (this.app.secretStorage.getSecret(apiKeySecret)?.trim() ?? "") : "";
+          return listModels({ baseUrl, apiKey });
+        },
+      );
       new Setting(containerEl)
         .setName("Web search")
         .setDesc("For Gemini models: let the model search the web when needed and cite sources.")
@@ -460,6 +481,49 @@ class YorumSettingTab extends PluginSettingTab {
           this.plugin.settings.deleteAiDataWithNote = value;
           await this.plugin.saveSettings();
         }),
+      );
+  }
+
+  /** Model ID, typed or picked from the provider's model list (searchable). */
+  private modelSetting(
+    containerEl: HTMLElement,
+    key: "model" | "chatgptModel",
+    desc: string,
+    placeholder: string,
+    loadModels: () => Promise<string[]>,
+  ): void {
+    let input!: TextComponent;
+    const save = async (value: string) => {
+      this.plugin.settings[key] = value.trim();
+      await this.plugin.saveSettings();
+    };
+    new Setting(containerEl)
+      .setName("Model")
+      .setDesc(desc)
+      .addText((t) => {
+        input = t.setPlaceholder(placeholder).setValue(this.plugin.settings[key]).onChange(save);
+      })
+      .addExtraButton((b) =>
+        b
+          .setIcon("list")
+          .setTooltip("Browse models")
+          .onClick(async () => {
+            let models: string[];
+            try {
+              models = await loadModels();
+            } catch (err) {
+              new Notice(`Couldn't list models: ${(err as Error).message}`);
+              return;
+            }
+            if (!models.length) {
+              new Notice("No models listed; type the model ID instead");
+              return;
+            }
+            new ModelPickerModal(this.app, models, (model) => {
+              input.setValue(model);
+              void save(model);
+            }).open();
+          }),
       );
   }
 

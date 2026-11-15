@@ -10,6 +10,23 @@ export interface OpenAICompatibleConfig {
   model: string;
 }
 
+/** Accept both a base URL (`…/v1`) and the full endpoint (`…/v1/chat/completions`). */
+function apiBase(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "").replace(/\/chat\/completions$/, "");
+}
+
+const authHeader = (apiKey: string): Record<string, string> => (apiKey ? { authorization: `Bearer ${apiKey}` } : {});
+
+/** Model IDs the endpoint offers (`GET …/models`), sorted, for the settings picker. */
+export async function listModels({ baseUrl, apiKey }: Omit<OpenAICompatibleConfig, "model">): Promise<string[]> {
+  const res = await fetch(`${apiBase(baseUrl)}/models`, { headers: authHeader(apiKey) });
+  if (!res.ok) throw new LlmError(`Listing models failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+  const body = (await res.json()) as { data?: { id?: unknown }[] };
+  if (!Array.isArray(body.data)) throw new LlmError("The endpoint's model list has an unexpected format");
+  const ids = body.data.map((m) => m.id).filter((id): id is string => typeof id === "string" && id !== "");
+  return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+}
+
 /** Minimal client for any OpenAI-compatible `/chat/completions` endpoint. */
 export class OpenAICompatibleClient implements LlmClient {
   constructor(private readonly config: OpenAICompatibleConfig) {}
@@ -17,15 +34,9 @@ export class OpenAICompatibleClient implements LlmClient {
   // `fast` is not sent: reasoning controls differ across OpenAI-compatible providers and unknown
   // parameters are rejected by some of them.
   async complete(messages: ChatMessage[], { onDelta }: CompleteOptions = {}): Promise<LlmReply> {
-    // Accept both a base URL (`…/v1`) and the full endpoint (`…/v1/chat/completions`).
-    const base = this.config.baseUrl.replace(/\/+$/, "");
-    const url = base.endsWith("/chat/completions") ? base : `${base}/chat/completions`;
-    const res = await fetch(url, {
+    const res = await fetch(`${apiBase(this.config.baseUrl)}/chat/completions`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
-      },
+      headers: { "content-type": "application/json", ...authHeader(this.config.apiKey) },
       body: JSON.stringify({ model: this.config.model, messages, stream: true }),
     });
     if (!res.ok || !res.body) {

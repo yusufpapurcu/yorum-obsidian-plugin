@@ -1,4 +1,4 @@
-import { type App, Modal, Notice, Setting, SuggestModal } from "obsidian";
+import { type App, FuzzySuggestModal, Modal, Notice, Setting, SuggestModal } from "obsidian";
 import { AUTO_LENS, LENS_PRESETS } from "./core/actions.js";
 import { CHATGPT_DEVICE_PAGE, type ChatGptTokens, requestDeviceCode, waitForDeviceCode } from "./core/chatgpt.js";
 import type { RelatedNote } from "./core/connections.js";
@@ -32,6 +32,32 @@ export class LensModal extends SuggestModal<string> {
 
   onChooseSuggestion(lens: string): void {
     this.onPick(lens);
+  }
+}
+
+/** Pick one of the endpoint's models; typing fuzzy-searches long lists (e.g. OpenRouter's). */
+export class ModelPickerModal extends FuzzySuggestModal<string> {
+  constructor(
+    app: App,
+    private readonly models: string[],
+    private readonly onPick: (model: string) => void,
+  ) {
+    super(app);
+    // Show every model when nothing is typed, not just the first 100.
+    this.limit = models.length;
+    this.setPlaceholder(`Search ${models.length} models…`);
+  }
+
+  getItems(): string[] {
+    return this.models;
+  }
+
+  getItemText(model: string): string {
+    return model;
+  }
+
+  onChooseItem(model: string): void {
+    this.onPick(model);
   }
 }
 
